@@ -132,7 +132,7 @@ function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
 function isoLocal(d){const tz=d.getTimezoneOffset();const t=new Date(d.getTime()-tz*60000);return t.toISOString().slice(0,19);}
 
 const STORAGE_KEY='gramLog-all';
-const BASELINE_G = 12.5; // změň podle sebe
+const BASELINE_G = 15; // změň podle sebe
 function loadAll(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch{return[];}}
 function saveAll(list){localStorage.setItem(STORAGE_KEY,JSON.stringify(list));}
 
@@ -370,4 +370,5 @@ renderAll();
 </script>
 </body>
 </html>
+
 
