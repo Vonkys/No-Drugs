@@ -423,51 +423,32 @@ chartMode.addEventListener('change', drawChart);
 
 function renderAll(){ render(); drawChart(); }
 renderAll();
-
-
-
-let lastQuickTs = 0;
+let quickDone = false;
 
 function handleQuick() {
-  try {
-    const params = new URLSearchParams(window.location.search);
-    const quick = params.get('quick');
-    if (!quick) return;
+  if (quickDone) return;
+  const params = new URLSearchParams(window.location.search);
+  const quick = params.get('quick');
+  if (!quick) return;
 
-    const now = Date.now();
-    // jednoduchá pojistka: nespouštět 2× během 1 vteřiny
-    if (now - lastQuickTs < 1000) return;
-    lastQuickTs = now;
+  const targetId =
+    quick === 'cig' ? 'btnCig' :
+    quick === 'joint' ? 'btnJoint' :
+    null;
+  if (!targetId) return;
 
-    const targetId =
-      quick === 'cig' ? 'btnCig' :
-      quick === 'joint' ? 'btnJoint' :
-      null;
-    if (!targetId) return;
-
-    const btn = document.getElementById(targetId);
-    if (btn) btn.click();
-  } catch (e) {
-    console.error('quick error', e);
+  const btn = document.getElementById(targetId);
+  if (btn) {
+    btn.click();
+    quickDone = true; // ZABRÁNÍ opakování
+    console.log("Quick logged:", quick);
   }
 }
 
-// spustit po načtení
 document.addEventListener('DOMContentLoaded', () => {
-  setTimeout(handleQuick, 100);
+  setTimeout(handleQuick, 120);
 });
-
-// a taky, když se stránka znovu zviditelní (Chrome ji jen vytáhne z pozadí)
-document.addEventListener('visibilitychange', () => {
-  if (!document.hidden) {
-    setTimeout(handleQuick, 50);
-  }
-});
-
-
-
 
 </script>
-
 </body>
 </html>
