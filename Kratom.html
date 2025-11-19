@@ -325,9 +325,6 @@ Array.from(document.querySelectorAll('button[data-preset]')).forEach(btn=>{btn.a
 
 document.getElementById('addCustom').addEventListener('click',()=>{addEntry(customAmount.value,new Date(),noteInput.value);customAmount.value='';noteInput.value='';});
 
-document.getElementById('undoBtn').addEventListener('click',()=>{entries.pop();saveAll(entries);render();drawChart();});
-document.getElementById('clearTodayBtn').addEventListener('click',()=>{const today=dateKey(new Date());if(entries.length===0)return;if(confirm('Fakt vymazat dnešní záznamy?')){entries=entries.filter(e=>e.ts.slice(0,10)!==today);saveAll(entries);render();drawChart();}});
-
 // mazání jednotlivých záznamů (delegace na kontejner skupin)
 groupsEl.addEventListener('click',(ev)=>{
   const btn=ev.target.closest('.row-del');
@@ -368,6 +365,7 @@ renderAll();
 </script>
 </body>
 </html>
+
 
 
 
