@@ -37,8 +37,22 @@
     .dot{width:10px;height:10px;border-radius:6px;background:#fff;display:inline-block}
     .dot.cig{background:var(--cig)} .dot.joint{background:var(--joint)}
     canvas{width:100%;background:#0b1220;border-radius:12px;display:block}
+    /* VAROVÁNÍ */
+    .warn {
+    color: #ef4444 !important;
+    font-weight: 800;
+    animation: blink 1.2s infinite;
+   }
+  @keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.35; }
+  }
 
-    /* --- ZHUŠTĚNÉ ŘÁDKY SOUČTŮ --- */
+  /* i tečka */
+  .dot.warn {
+  background: #ef4444 !important;
+  }
+     /* --- ZHUŠTĚNÉ ŘÁDKY SOUČTŮ --- */
     .totals{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-top:8px;color:var(--muted)}
     .totals .sep{margin:0 4px}
     .pill{display:inline-flex;align-items:center;gap:6px;padding:4px 8px;border-radius:999px;background:rgba(255,255,255,.08)}
@@ -142,7 +156,10 @@ function escapeHtml(s){return String(s||'').replace(/[&<>\"]/g,m=>({'&':'&amp;',
 /* ===== Nastavení LocalStorage + Firebase ===== */
 const STORAGE_KEY='smoketrack-entries-v1';
 const FIREBASE_URL='https://cigaro-default-rtdb.europe-west1.firebasedatabase.app';
-
+const WARN_LIMITS = {
+  cig: 10,
+  joint: 3
+};
 function loadAll(){
   try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }
   catch{ return []; }
@@ -327,11 +344,26 @@ function render(){
     const dt=new Date(list[0].ts);
     const cig=list.filter(e=>e.type==='cig').length;
     const joi=list.filter(e=>e.type==='joint').length;
-
+    const cigWarn = cig > WARN_LIMITS.cig;
+    const joiWarn = joi > WARN_LIMITS.joint;
+    
     const det=document.createElement('details'); det.className='day'; if(dayKey===today) det.open=true;
     const sum=document.createElement('summary');
-    sum.innerHTML = `<div>${fmtDate(dt)}</div><div class="badge"><span class="dot cig"></span>${cig} cig</div><div class="badge"><span class="dot joint"></span>${joi} joint</div>`;
-    det.appendChild(sum);
+   sum.innerHTML = `
+  <div>${fmtDate(dt)}</div>
+
+  <div class="badge ${cigWarn ? 'warn' : ''}">
+    <span class="dot cig ${cigWarn ? 'warn' : ''}"></span>
+    ${cig} cig
+  </div>
+
+  <div class="badge ${joiWarn ? 'warn' : ''}">
+    <span class="dot joint ${joiWarn ? 'warn' : ''}"></span>
+    ${joi} joint
+  </div>
+`;
+
+  det.appendChild(sum);
 
     const tbl=document.createElement('table');
     tbl.innerHTML='<thead><tr><th>Čas</th><th>Typ</th><th>Poznámka</th><th></th></tr></thead><tbody></tbody>';
