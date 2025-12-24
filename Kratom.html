@@ -466,6 +466,24 @@ function addEntry(grams,when=new Date(),note=''){
   drawChart();
 }
 
+// preset tlačítka – normální záznam
+document.querySelectorAll('button[data-preset]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    customAmount.value = btn.getAttribute('data-preset');
+  });
+});
+// mazání jednotlivých záznamů
+groupsEl.addEventListener('click',(ev)=>{
+  const btn = ev.target.closest('.row-del');
+  if(!btn) return;
+
+  if(confirm('Smazat tento záznam?')){
+    entries = entries.filter(e => e.id !== btn.dataset.id);
+    saveAll(entries);
+    render();
+    drawChart();
+  }
+});
 
 // zpětný záznam
 const backfillBtn=document.getElementById('backfillBtn');
