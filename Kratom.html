@@ -252,6 +252,7 @@ function render(){
 }
 
 /* ===== DATA + GRAFY – BEZE ZMĚN (KOPIE) ===== */
+// --- data pro graf ---
 function dailyTotals(days=30){
   const map=new Map();
   entries.forEach(e=>{const d=e.ts.slice(0,10); map.set(d,(map.get(d)||0)+Number(e.g));});
@@ -259,112 +260,216 @@ function dailyTotals(days=30){
   for(let i=days-1;i>=0;i--){
     const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
     const key=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
-    out.push({key,label:`${pad(d.getDate())}.${pad(d.getMonth()+1)}`,val:+(map.get(key)||0)});
+    out.push({key, label:`${pad(d.getDate())}.${pad(d.getMonth()+1)}`, val: +(map.get(key)||0)});
   }
   return out;
 }
 
+// --- měsíční součty za posledních X měsíců ---
 function monthlyTotals(months = 6){
-  const map = new Map();
-  entries.forEach(e=>{
-    const d=new Date(e.ts);
-    const key=d.getFullYear()+'-'+pad(d.getMonth()+1);
-    map.set(key,(map.get(key)||0)+Number(e.g));
+  const map = new Map(); // key = "YYYY-MM" -> součet g
+
+  entries.forEach(e => {
+    const d = new Date(e.ts);
+    const key = d.getFullYear() + '-' + pad(d.getMonth()+1);
+    map.set(key, (map.get(key) || 0) + Number(e.g));
   });
-  const out=[]; const now=new Date();
-  for(let i=months-1;i>=0;i--){
-    const d=new Date(now.getFullYear(),now.getMonth()-i,1);
-    const key=d.getFullYear()+'-'+pad(d.getMonth()+1);
-    out.push({key,label:`${pad(d.getMonth()+1)}.${d.getFullYear()}`,val:+(map.get(key)||0)});
+
+  const out = [];
+  const now = new Date();
+
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + pad(d.getMonth()+1);
+    out.push({
+      key,
+      label: `${pad(d.getMonth()+1)}.${d.getFullYear()}`, // např. 11.2025
+      val: +(map.get(key) || 0)
+    });
   }
   return out;
 }
-
-/* drawChart – PŘESNĚ JAK JSI POSLAL */
+// --- kreslení grafu ---
 function drawChart(){
-  const c=document.getElementById('doseChart'); if(!c)return;
+  const c=document.getElementById('doseChart'); if(!c)return; 
   const ctx=c.getContext('2d');
-  const W=c.width=c.clientWidth, H=c.height;
+  const W=c.width = c.clientWidth; 
+  const H=c.height; 
   ctx.clearRect(0,0,W,H);
 
-  const modeEl=document.getElementById('chartMode');
-  const mode=modeEl?modeEl.value:'dailyTotals';
+  const modeEl = document.getElementById('chartMode');
+  const mode = modeEl ? modeEl.value : 'dailyTotals';
 
-  let data,xLabelsStep;
-  if(mode==='monthlyTotals'){
-    data=monthlyTotals(6); xLabelsStep=1;
-  }else{
-    data=dailyTotals(30); xLabelsStep=Math.ceil(data.length/6);
+  let data, xLabelsStep;
+
+  if (mode === 'monthlyTotals') {
+    data = monthlyTotals(6);
+    if (data.length === 0) data = [{label:'', val:0}];
+    xLabelsStep = 1; // 6 měsíců -> ukážeme všechny
+  } else {
+    data = dailyTotals(30);
+    xLabelsStep = Math.ceil(data.length / 6);
   }
 
-  let max=Math.max(5,...data.map(d=>d.val),(mode==='dailyTotals'?BASELINE_G:0));
-  const left=36,right=8,top=12,bottom=28;
-  const iw=W-left-right, ih=H-top-bottom;
+  let max = Math.max(5, ...data.map(d=>d.val), (mode==='dailyTotals' ? BASELINE_G : 0));
 
-  ctx.strokeStyle='rgba(255,255,255,0.25)';
-  ctx.beginPath();
-  ctx.moveTo(left,top); ctx.lineTo(left,H-bottom); ctx.lineTo(W-right,H-bottom);
+  const left=36, right=8, top=12, bottom=28; 
+  const innerW=W-left-right, innerH=H-top-bottom;
+
+  // osy
+  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1;
+  ctx.beginPath(); 
+  ctx.moveTo(left, top); 
+  ctx.lineTo(left, H-bottom); 
+  ctx.lineTo(W-right, H-bottom); 
   ctx.stroke();
 
-  const stepX=data.length?iw/data.length:iw;
-  if(mode==='monthlyTotals'){
-    const barW=stepX*0.6, bottomY=top+ih;
-    data.forEach((d,i)=>{
-      const xC=left+stepX*(i+0.5);
-      const y=top+ih-(d.val/max)*ih;
-      const h=bottomY-y;
-      if(d.val>0){
-        ctx.fillStyle='#22c55e';
-        ctx.fillRect(xC-barW/2,y,barW,h);
-        const lbl=d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
-        ctx.fillStyle='#fff';
-        ctx.textAlign='center';
-        ctx.fillText(lbl,xC,h>24?y+h/2:y-4);
+  // grid + Y
+  const steps=4; 
+  ctx.font='12px system-ui';
+  for(let i=0;i<=steps;i++){
+    const y=top + innerH - (i/steps)*innerH; 
+    const v=(i/steps)*max;
+    ctx.strokeStyle='rgba(255,255,255,0.12)'; 
+    ctx.beginPath(); 
+    ctx.moveTo(left, y); 
+    ctx.lineTo(W-right, y); 
+    ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.7)'; 
+    ctx.textAlign='left'; 
+    ctx.fillText(v.toFixed(0)+' g', 4, y+4);
+  }
+
+  const stepX = data.length ? innerW / data.length : innerW;
+
+  if (mode === 'monthlyTotals') {
+  // sloupce
+  const barWidth = stepX * 0.6; // 60 % šířky buněk
+  const bottomY = top + innerH;
+
+  data.forEach((d,i)=>{
+    const xCenter = left + stepX*(i + 0.5);
+    const y = top + innerH - (d.val/max)*innerH;
+    const barHeight = bottomY - y;
+
+    if (d.val > 0) {
+      // samotný sloupec
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(xCenter - barWidth/2, y, barWidth, barHeight);
+
+      const valLabel = d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
+
+      // větší sloupec → číslo VEVNITŘ svisle
+      if (barHeight > 24) {
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.font = '25px system-ui';
+        ctx.fillStyle = '#ffffff'; // čistě bílé, lepší kontrast
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+
+        // střed sloupce
+        const midY = y + barHeight/2;
+        ctx.translate(xCenter, midY);
+        ctx.rotate(-Math.PI/2); // svisle
+        ctx.fillText(valLabel, 0, 0);
+        ctx.restore();
+      } else {
+        // malý sloupek → radši nad ním, ať je to čitelné
+        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        ctx.font = '25px system-ui';
+        ctx.fillStyle = '#ffffff'; // čistě bílé, lepší kontrast
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(valLabel, xCenter, y - 4);
       }
-    });
-  }else{
-    ctx.strokeStyle='#22c55e';
+    }
+  });
+}
+
+
+   else {
+    // denní linechart
+    ctx.strokeStyle='#22c55e'; 
+    ctx.lineWidth=2; 
     ctx.beginPath();
     data.forEach((d,i)=>{
-      const x=left+(i/(data.length-1))*iw;
-      const y=top+ih-(d.val/max)*ih;
-      if(i===0)ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      const x= left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
+      const y= top + innerH - (d.val/max)*innerH;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
     });
     ctx.stroke();
+
+    // body
+    ctx.fillStyle='#22c55e';
+    data.forEach((d,i)=>{
+      const x= left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
+      const y= top + innerH - (d.val/max)*innerH;
+      ctx.beginPath(); 
+      ctx.arc(x,y,2.5,0,Math.PI*2); 
+      ctx.fill();
+    });
   }
+
+  // baseline jen pro denní součty
+  if (mode === 'dailyTotals'){
+    const yBase = top + innerH - (BASELINE_G/max)*innerH;
+    ctx.save();
+    ctx.setLineDash([6,4]);
+    ctx.strokeStyle = '#ef4444';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); 
+    ctx.moveTo(left, yBase); 
+    ctx.lineTo(W-right, yBase); 
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(239,68,68,0.9)';
+    ctx.textAlign = 'right';
+    ctx.fillText(`baseline ${BASELINE_G} g`, W-10, Math.max(top+12, yBase-6));
+    ctx.restore();
+  }
+
+  // X popisky
+  ctx.fillStyle='rgba(255,255,255,0.7)'; 
+  ctx.textAlign='center';
+  ctx.font = '11px system-ui';
+  data.forEach((d,i)=>{ 
+    if(i % xLabelsStep === 0 || i === data.length - 1){
+      let x;
+      if (mode === 'monthlyTotals') {
+        x = left + stepX*(i + 0.5); // střed sloupce
+      } else {
+        x = left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
+      }
+      ctx.fillText(d.label, x, H-8);
+    }
+  });
 }
 
-/* ========= ADD – JEDINÝ ZÁSAH ========= */
-function addEntry(grams,when=new Date(),note=''){
-  const g=Number(grams);
-  if(!g||g<=0)return;
-  const entry={id:genId(),ts:isoLocal(when),g,note:note.trim()};
-  entries.push(entry);
-  saveAll(entries);
-  sendToFirebase(entry);
-  render();
-  drawChart();
-}
 
-/* ========= EVENTY, BACKFILL, START ========= */
-Array.from(document.querySelectorAll('button[data-preset]')).forEach(btn=>{
-  btn.addEventListener('click',()=>customAmount.value=btn.getAttribute('data-preset'));
-});
-document.getElementById('addCustom').addEventListener('click',()=>{
-  addEntry(customAmount.value,new Date(),noteInput.value);
-  customAmount.value=''; noteInput.value='';
-});
+function escapeHtml(str){return String(str).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]));}
+function addEntry(grams,when=new Date(),note=''){const g=Number(grams);if(!g||g<=0)return;entries.push({id:genId(),ts:isoLocal(when),g,note:note.trim()});saveAll(entries);render();drawChart();}
 
+// Presety předvyplní množství, Přidat uloží
+Array.from(document.querySelectorAll('button[data-preset]')).forEach(btn=>{btn.addEventListener('click',()=>{customAmount.value=btn.getAttribute('data-preset');});});
+
+document.getElementById('addCustom').addEventListener('click',()=>{addEntry(customAmount.value,new Date(),noteInput.value);customAmount.value='';noteInput.value='';});
+
+// mazání jednotlivých záznamů (delegace na kontejner skupin)
 groupsEl.addEventListener('click',(ev)=>{
   const btn=ev.target.closest('.row-del');
-  if(!btn)return;
+  if(!btn) return;
+  const id=btn.getAttribute('data-id');
+  if(!id) return;
   if(confirm('Smazat tento záznam?')){
-    entries=entries.filter(e=>e.id!==btn.dataset.id);
+    entries=entries.filter(e=>e.id!==id);
     saveAll(entries);
-    render(); drawChart();
+    render();
+    drawChart();
   }
 });
 
+// zpětný záznam
 const backfillBtn=document.getElementById('backfillBtn');
 const backfillDlg=document.getElementById('backfillDlg');
 const bfAmount=document.getElementById('bfAmount');
@@ -372,42 +477,20 @@ const bfDate=document.getElementById('bfDate');
 const bfTime=document.getElementById('bfTime');
 const bfNote=document.getElementById('bfNote');
 
-// preset tlačítka ve zpětném záznamu
-document.querySelectorAll('button[data-bf]').forEach(btn=>{
-  btn.addEventListener('click',()=>{
-    bfAmount.value = btn.getAttribute('data-bf');
-  });
-});
+document.querySelectorAll('button[data-bf]').forEach(btn=>btn.addEventListener('click',()=>{bfAmount.value=btn.getAttribute('data-bf');}));
 
-backfillBtn.addEventListener('click',()=>{
-  const n=new Date();
-  bfDate.value=n.toISOString().slice(0,10);
-  bfTime.value=`${pad(n.getHours())}:${pad(n.getMinutes())}`;
-  bfAmount.value=customAmount.value||'';
-  bfNote.value=noteInput.value||'';
-  backfillDlg.showModal();
-});
+backfillBtn.addEventListener('click',()=>{const now=new Date();bfDate.value=now.toISOString().slice(0,10);bfTime.value=`${pad(now.getHours())}:${pad(now.getMinutes())}`;bfAmount.value=customAmount.value||'';bfNote.value=noteInput.value||'';backfillDlg.showModal();});
+
 document.getElementById('bfCancel').addEventListener('click',()=>backfillDlg.close());
-document.getElementById('bfSave').addEventListener('click',()=>{
-  const [Y,M,D]=bfDate.value.split('-').map(Number);
-  const [H,Min]=(bfTime.value||'00:00').split(':').map(Number);
-  addEntry(bfAmount.value,new Date(Y,M-1,D,H||0,Min||0),bfNote.value);
-  backfillDlg.close();
-});
+document.getElementById('bfSave').addEventListener('click',()=>{const d=bfDate.value;const t=bfTime.value||'00:00';if(!d){alert('Zadej datum');return;}const [Y,M,D]=d.split('-').map(Number);const [H,Min]=t.split(':').map(Number);const when=new Date(Y,(M||1)-1,(D||1),H||0,Min||0);addEntry(bfAmount.value,when,bfNote.value);backfillDlg.close();});
 
-let rAf;
-window.addEventListener('resize',()=>{
-  cancelAnimationFrame(rAf);
-  rAf=requestAnimationFrame(drawChart);
-});
-const chartModeEl=document.getElementById('chartMode');
-if(chartModeEl) chartModeEl.addEventListener('change',drawChart);
+// překreslení grafu
+let rAf; window.addEventListener('resize',()=>{cancelAnimationFrame(rAf); rAf=requestAnimationFrame(drawChart);});
+const chartModeEl = document.getElementById('chartMode');
+if (chartModeEl) chartModeEl.addEventListener('change', drawChart);
 
-async function renderAll(){
-  await syncFromFirebase();
-  render();
-  drawChart();
-}
+// start
+function renderAll(){ render(); drawChart(); }
 renderAll();
 </script>
 </body>
