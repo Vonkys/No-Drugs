@@ -372,6 +372,13 @@ const bfDate=document.getElementById('bfDate');
 const bfTime=document.getElementById('bfTime');
 const bfNote=document.getElementById('bfNote');
 
+// preset tlačítka ve zpětném záznamu
+document.querySelectorAll('button[data-bf]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    bfAmount.value = btn.getAttribute('data-bf');
+  });
+});
+
 backfillBtn.addEventListener('click',()=>{
   const n=new Date();
   bfDate.value=n.toISOString().slice(0,10);
@@ -403,10 +410,8 @@ async function renderAll(){
 }
 renderAll();
 </script>
-
 </body>
 </html>
-
 
 
 
