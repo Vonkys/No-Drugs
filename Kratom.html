@@ -484,6 +484,12 @@ groupsEl.addEventListener('click',(ev)=>{
     drawChart();
   }
 });
+// normální přidání záznamu (REALTIME)
+document.getElementById('addCustom').addEventListener('click',()=>{
+  addEntry(customAmount.value, new Date(), noteInput.value);
+  customAmount.value = '';
+  noteInput.value = '';
+});
 
 // zpětný záznam
 const backfillBtn=document.getElementById('backfillBtn');
@@ -512,9 +518,7 @@ async function renderAll(){
   drawChart();
 }
 renderAll();
-
 </script>
-
 </body>
 </html>
 
