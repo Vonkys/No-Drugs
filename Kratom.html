@@ -123,17 +123,14 @@
 </dialog>
 
 <script>
-/* =======================
-   HELPERY
-======================= */
+/* ===== HELPERY ===== */
 function pad(n){return String(n).padStart(2,'0');}
 function dateKey(d=new Date()){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
 function fmtDate(d){return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;}
 function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
 function isoLocal(d){
   const tz=d.getTimezoneOffset();
-  const t=new Date(d.getTime()-tz*60000);
-  return t.toISOString().slice(0,19);
+  return new Date(d.getTime()-tz*60000).toISOString().slice(0,19);
 }
 function escapeHtml(str){
   return String(str).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]));
@@ -142,11 +139,9 @@ function genId(){
   return Date.now().toString(36)+Math.random().toString(36).slice(2,8);
 }
 
-/* =======================
-   STORAGE + FIREBASE
-======================= */
-const STORAGE_KEY = 'gramLog-all';
-const FIREBASE_URL = 'https://kratom-332d6-default-rtdb.europe-west1.firebasedatabase.app';
+/* ===== STORAGE + FIREBASE ===== */
+const STORAGE_KEY='gramLog-all';
+const FIREBASE_URL='https://kratom-332d6-default-rtdb.europe-west1.firebasedatabase.app';
 const BASELINE_G = 15;
 
 function loadAll(){
@@ -154,61 +149,52 @@ function loadAll(){
   catch{ return []; }
 }
 function saveAll(list){
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(list));
+  localStorage.setItem(STORAGE_KEY,JSON.stringify(list));
 }
 
 let entries = loadAll();
 
-/* =======================
-   FIREBASE SYNC
-======================= */
-
-// zápis nového záznamu
+/* ===== FIREBASE ===== */
 function sendToFirebase(entry){
   try{
-    const tsMs = new Date(entry.ts).getTime();
-    if(!Number.isFinite(tsMs)) return;
-
-    const payload = {
-      ts: Math.round(tsMs/1000),
+    const payload={
+      ts: Math.round(new Date(entry.ts).getTime()/1000),
       g: Number(entry.g),
-      source: 'web',
+      source:'web',
       note: entry.note || ''
     };
-
-    fetch(FIREBASE_URL + '/logs.json', {
+    fetch(FIREBASE_URL+'/logs.json',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body: JSON.stringify(payload)
     }).catch(()=>{});
   }catch(e){
-    console.error('Firebase send error', e);
+    console.error('Firebase send error',e);
   }
 }
 
-// načtení a sloučení
 async function syncFromFirebase(){
   try{
-    const res = await fetch(FIREBASE_URL + '/logs.json');
+    const res=await fetch(FIREBASE_URL+'/logs.json');
     if(!res.ok) return;
-    const data = await res.json();
+    const data=await res.json();
     if(!data) return;
 
-    const fb = [];
-    for(const [key,val] of Object.entries(data)){
-      if(!val || !val.ts || !val.g) continue;
-      const d = new Date(val.ts * 1000);
+    const fb=[];
+    for(const [k,v] of Object.entries(data)){
+      if(!v.ts || !v.g) continue;
+      const d=new Date(v.ts*1000);
       fb.push({
-        id:'fb-'+key,
+        id:'fb-'+k,
         ts: isoLocal(d),
-        g: Number(val.g),
-        note: val.note ? String(val.note) : ''
+        g: Number(v.g),
+        note: v.note || ''
       });
     }
 
-    const seen = new Set();
-    entries = [...entries, ...fb].filter(e=>{
-      const k = e.g+'|'+e.ts+'|'+(e.note||'');
+    const seen=new Set();
+    entries=[...entries,...fb].filter(e=>{
+      const k=e.g+'|'+e.ts+'|'+(e.note||'');
       if(seen.has(k)) return false;
       seen.add(k);
       return true;
@@ -216,13 +202,11 @@ async function syncFromFirebase(){
 
     saveAll(entries);
   }catch(e){
-    console.error('Firebase sync failed', e);
+    console.error('Firebase sync failed',e);
   }
 }
 
-/* =======================
-   UI REFS
-======================= */
+/* ===== UI REFS ===== */
 const groupsEl=document.getElementById('groups');
 const totalTodayEl=document.getElementById('totalToday');
 const countTodayEl=document.getElementById('countToday');
@@ -230,20 +214,23 @@ const todayBadge=document.getElementById('todayBadge');
 const customAmount=document.getElementById('customAmount');
 const noteInput=document.getElementById('note');
 
-/* =======================
-   CORE LOGIC
-======================= */
+/* ===== HEADER ===== */
 function refreshHeader(){
   const now=new Date();
   const days=['Ne','Po','Út','St','Čt','Pá','So'];
   todayBadge.textContent=`${days[now.getDay()]} • ${dateKey(now)}`;
 }
+function gClass(g){
+  const r=Math.round(Number(g));
+  return r===2?'g2':r===3?'g3':r===4?'g4':r===5?'g5':r===6?'g6':'g0';
+}
 
+/* ===== CORE ===== */
 function addEntry(grams, when=new Date(), note=''){
-  const g = Number(grams);
-  if(!g || g<=0) return;
+  const g=Number(grams);
+  if(!g||g<=0) return;
 
-  const entry = {
+  const entry={
     id: genId(),
     ts: isoLocal(when),
     g,
@@ -258,18 +245,16 @@ function addEntry(grams, when=new Date(), note=''){
   drawChart();
 }
 
-/* =======================
-   RENDER
-======================= */
+/* ===== RENDER ===== */
 function render(){
   refreshHeader();
+  const today=dateKey(new Date());
+  const todays=entries.filter(e=>e.ts.slice(0,10)===today);
+  const sumToday=todays.reduce((a,b)=>a+Number(b.g),0);
+  totalTodayEl.textContent=sumToday.toLocaleString('cs-CZ',{maximumFractionDigits:2});
+  countTodayEl.textContent=todays.length;
 
-  const today = dateKey();
-  const todays = entries.filter(e=>e.ts.slice(0,10)===today);
-  totalTodayEl.textContent = todays.reduce((a,b)=>a+b.g,0).toLocaleString('cs-CZ',{maximumFractionDigits:2});
-  countTodayEl.textContent = todays.length;
-
-  const map = new Map();
+  const map=new Map();
   entries.slice().sort((a,b)=>new Date(a.ts)-new Date(b.ts)).forEach(e=>{
     const k=e.ts.slice(0,10);
     if(!map.has(k)) map.set(k,[]);
@@ -278,17 +263,16 @@ function render(){
 
   groupsEl.innerHTML='';
   [...map.keys()].sort((a,b)=>a<b?1:-1).forEach(dayKey=>{
-    const list = map.get(dayKey);
-    const sum = list.reduce((a,b)=>a+b.g,0).toLocaleString('cs-CZ',{maximumFractionDigits:2});
+    const list=map.get(dayKey);
+    const details=document.createElement('details');
+    details.className='day';
+    if(dayKey===today) details.open=true;
 
-    const det=document.createElement('details');
-    det.className='day';
-    if(dayKey===today) det.open=true;
-
-    const sumEl=document.createElement('summary');
-    sumEl.innerHTML=`<div>${fmtDate(new Date(list[0].ts))}</div>
-                     <div class="day-meta">součet <strong>${sum} g</strong> • ${list.length}×</div>`;
-    det.appendChild(sumEl);
+    const daySum=list.reduce((a,b)=>a+Number(b.g),0).toLocaleString('cs-CZ',{maximumFractionDigits:2});
+    const summary=document.createElement('summary');
+    summary.innerHTML=`<div>${fmtDate(new Date(list[0].ts))}</div>
+      <div class="day-meta">součet: <strong>${daySum} g</strong> • záznamů: ${list.length}</div>`;
+    details.appendChild(summary);
 
     const tbl=document.createElement('table');
     tbl.innerHTML='<thead><tr><th>Čas</th><th>g</th><th>Poznámka</th><th></th></tr></thead><tbody></tbody>';
@@ -298,40 +282,67 @@ function render(){
       const tr=document.createElement('tr');
       tr.innerHTML=`
         <td>${fmtTime(new Date(e.ts))}</td>
-        <td>${e.g}</td>
+        <td><span class="gchip ${gClass(e.g)}">${Number(e.g).toLocaleString('cs-CZ',{maximumFractionDigits:2})}</span></td>
         <td>${escapeHtml(e.note)}</td>
         <td><button class="ghost row-del" data-id="${e.id}">×</button></td>`;
       tb.appendChild(tr);
     });
 
-    det.appendChild(tbl);
-    groupsEl.appendChild(det);
+    details.appendChild(tbl);
+    groupsEl.appendChild(details);
   });
 }
 
-/* =======================
-   DELETE
-======================= */
+/* ===== DELETE ===== */
 groupsEl.addEventListener('click',ev=>{
   const btn=ev.target.closest('.row-del');
   if(!btn) return;
   const id=btn.dataset.id;
-  if(confirm('Smazat záznam?')){
-    entries = entries.filter(e=>e.id!==id);
+  if(confirm('Smazat tento záznam?')){
+    entries=entries.filter(e=>e.id!==id);
     saveAll(entries);
     render();
     drawChart();
   }
 });
 
-/* =======================
-   GRAF
-======================= */
+/* ===== BACKFILL ===== */
+const backfillBtn=document.getElementById('backfillBtn');
+const backfillDlg=document.getElementById('backfillDlg');
+const bfAmount=document.getElementById('bfAmount');
+const bfDate=document.getElementById('bfDate');
+const bfTime=document.getElementById('bfTime');
+const bfNote=document.getElementById('bfNote');
+
+document.querySelectorAll('[data-bf]').forEach(b=>{
+  b.addEventListener('click',()=>bfAmount.value=b.dataset.bf);
+});
+
+backfillBtn.addEventListener('click',()=>{
+  const now=new Date();
+  bfDate.value=now.toISOString().slice(0,10);
+  bfTime.value=`${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  bfAmount.value=customAmount.value||'';
+  bfNote.value=noteInput.value||'';
+  backfillDlg.showModal();
+});
+
+document.getElementById('bfCancel').addEventListener('click',()=>backfillDlg.close());
+document.getElementById('bfSave').addEventListener('click',()=>{
+  if(!bfDate.value){alert('Zadej datum');return;}
+  const [Y,M,D]=bfDate.value.split('-').map(Number);
+  const [H,Min]=(bfTime.value||'00:00').split(':').map(Number);
+  const when=new Date(Y,M-1,D,H||0,Min||0);
+  addEntry(bfAmount.value,when,bfNote.value);
+  backfillDlg.close();
+});
+
+/* ===== GRAF ===== */
 function dailyTotals(days=30){
   const map=new Map();
   entries.forEach(e=>{
     const d=e.ts.slice(0,10);
-    map.set(d,(map.get(d)||0)+e.g);
+    map.set(d,(map.get(d)||0)+Number(e.g));
   });
   const out=[]; const now=new Date();
   for(let i=days-1;i>=0;i--){
@@ -345,14 +356,12 @@ function dailyTotals(days=30){
 function drawChart(){
   const c=document.getElementById('doseChart');
   const ctx=c.getContext('2d');
-  const W=c.width=c.clientWidth;
-  const H=c.height;
+  const W=c.width=c.clientWidth, H=c.height;
   ctx.clearRect(0,0,W,H);
 
   const data=dailyTotals(30);
   const max=Math.max(BASELINE_G,...data.map(d=>d.val),5);
-
-  const left=40,right=10,top=10,bottom=25;
+  const left=36,right=8,top=12,bottom=28;
   const iw=W-left-right, ih=H-top-bottom;
 
   ctx.strokeStyle='rgba(255,255,255,.25)';
@@ -372,19 +381,7 @@ function drawChart(){
   ctx.stroke();
 }
 
-/* =======================
-   INIT
-======================= */
-async function init(){
-  await syncFromFirebase();
-  render();
-  drawChart();
-}
-init();
-
-/* =======================
-   EVENTS
-======================= */
+/* ===== EVENTS ===== */
 document.querySelectorAll('[data-preset]').forEach(b=>{
   b.addEventListener('click',()=>customAmount.value=b.dataset.preset);
 });
@@ -392,9 +389,18 @@ document.getElementById('addCustom').addEventListener('click',()=>{
   addEntry(customAmount.value,new Date(),noteInput.value);
   customAmount.value=''; noteInput.value='';
 });
+
+/* ===== INIT ===== */
+async function init(){
+  await syncFromFirebase();
+  render();
+  drawChart();
+}
+init();
 </script>
 </body>
 </html>
+
 
 
 
