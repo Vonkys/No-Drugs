@@ -445,13 +445,23 @@ function drawChart(){
       ctx.font='11px system-ui';
       ctx.textAlign='center';
 
-      if(h > 28){
-        ctx.translate(x, y + h/2);
-        ctx.rotate(-Math.PI/2);
-        ctx.fillText(label,0,0);
-      } else {
-        ctx.fillText(label, x, y-4);
-      }
+      ctx.save();
+ctx.fillStyle = '#ffffff';
+ctx.font = '12px system-ui';
+ctx.textAlign = 'center';
+
+if (h > 40) {
+  // VELKÝ SLOUPEC → text UVNITŘ, NEROTOVAT
+  ctx.textBaseline = 'middle';
+  ctx.fillText(label, x, y + h / 2);
+} else {
+  // MALÝ SLOUPEC → NAD
+  ctx.textBaseline = 'bottom';
+  ctx.fillText(label, x, y - 4);
+}
+
+
+
       ctx.restore();
     });
 
