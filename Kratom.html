@@ -377,90 +377,79 @@ function drawChart(){
   const H = c.height;
   ctx.clearRect(0,0,W,H);
 
-  const modeEl = document.getElementById('chartMode');
-  const mode = modeEl ? modeEl.value : 'dailyTotals';
+  const mode = document.getElementById('chartMode')?.value || 'dailyTotals';
+
+  const left = 40, right = 10, top = 12, bottom = 28;
+  const innerW = W - left - right;
+  const innerH = H - top - bottom;
+
+  /* ===== OSY (společné) ===== */
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, H - bottom);
+  ctx.lineTo(W - right, H - bottom);
+  ctx.stroke();
 
   /* =====================================================
-     REŽIM: ROZESTUPY MEZI DÁVKAMI (SLOUPCE)
+     ROZESTUPY MEZI DÁVKAMI (SLOUPCOVÝ GRAF)
   ===================================================== */
   if(mode === 'gaps'){
-    const gaps = getDoseGaps(30); // posledních 30 pauz
-
+    const gaps = getDoseGaps(30);
     if(!gaps.length){
-      ctx.fillStyle = 'rgba(255,255,255,.6)';
-      ctx.textAlign = 'center';
-      ctx.font = '14px system-ui';
+      ctx.fillStyle='rgba(255,255,255,.6)';
+      ctx.font='14px system-ui';
+      ctx.textAlign='center';
       ctx.fillText('Zatím nejsou žádné rozestupy', W/2, H/2);
       return;
     }
 
-    const maxSec = Math.max(...gaps, 3600); // min. 1 hodina měřítko
-    const left=40, right=10, top=12, bottom=28;
-    const innerW=W-left-right, innerH=H-top-bottom;
-
-    // osy
-    ctx.strokeStyle='rgba(255,255,255,0.25)';
-    ctx.lineWidth=1;
-    ctx.beginPath();
-    ctx.moveTo(left,top);
-    ctx.lineTo(left,H-bottom);
-    ctx.lineTo(W-right,H-bottom);
-    ctx.stroke();
+    const maxSec = Math.max(...gaps, 3600);
 
     // Y osa – hodiny
     ctx.font='12px system-ui';
-    const steps=4;
-    for(let i=0;i<=steps;i++){
-      const y=top + innerH - (i/steps)*innerH;
-      const vSec=(i/steps)*maxSec;
-      const label=`${Math.round(vSec/3600)} h`;
-
+    for(let i=0;i<=4;i++){
+      const y = top + innerH - (i/4)*innerH;
+      const hLabel = Math.round((i/4)*maxSec/3600);
       ctx.strokeStyle='rgba(255,255,255,0.12)';
       ctx.beginPath();
       ctx.moveTo(left,y);
       ctx.lineTo(W-right,y);
       ctx.stroke();
-
       ctx.fillStyle='rgba(255,255,255,0.7)';
-      ctx.textAlign='left';
-      ctx.fillText(label, 4, y+4);
+      ctx.fillText(`${hLabel} h`, 4, y+4);
     }
 
-    // sloupce
     const colW = innerW / gaps.length;
-    const barW = Math.min(18, colW*0.7);
+    const barW = Math.min(18, colW * 0.7);
 
     gaps.forEach((sec,i)=>{
       const h = (sec / maxSec) * innerH;
-      const x = left + colW*i + colW/2;
+      const x = left + colW * i + colW / 2;
       const y = top + innerH - h;
 
       ctx.fillStyle = '#22c55e';
-      ctx.fillRect(x-barW/2, y, barW, h);
+      ctx.fillRect(x - barW/2, y, barW, h);
 
-      // popisek HH:MM
       const label = formatHM(sec);
-      ctx.save();
-      ctx.fillStyle='#fff';
-      ctx.font='11px system-ui';
-      ctx.textAlign='center';
 
       ctx.save();
-ctx.fillStyle = '#ffffff';
-ctx.font = '12px system-ui';
-ctx.textAlign = 'center';
+      ctx.fillStyle = '#fff';
+      ctx.font = window.innerWidth < 480 ? '11px system-ui' : '12px system-ui';
+      ctx.textAlign = 'center';
 
-if (h > 40) {
-  // VELKÝ SLOUPEC → text UVNITŘ, NEROTOVAT
-  ctx.textBaseline = 'middle';
-  ctx.fillText(label, x, y + h / 2);
-} else {
-  // MALÝ SLOUPEC → NAD
-  ctx.textBaseline = 'bottom';
-  ctx.fillText(label, x, y - 4);
-}
-
-
+      if(h > 36){
+        // UVNITŘ – SVISLE
+        ctx.translate(x, y + h/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, 0, 0);
+      } else {
+        // NAD – VODOROVNĚ
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, x, y - 4);
+      }
 
       ctx.restore();
     });
@@ -469,139 +458,96 @@ if (h > 40) {
   }
 
   /* =====================================================
-     OSTATNÍ REŽIMY (DENNÍ / MĚSÍČNÍ)
+     DENNÍ / MĚSÍČNÍ DATA
   ===================================================== */
-
   let data, xLabelsStep;
-
-  if (mode === 'monthlyTotals') {
+  if(mode === 'monthlyTotals'){
     data = monthlyTotals(6);
-    if (data.length === 0) data = [{label:'', val:0}];
     xLabelsStep = 1;
   } else {
     data = dailyTotals(30);
     xLabelsStep = Math.ceil(data.length / 6);
   }
 
-  let max = Math.max(
+  const max = Math.max(
     5,
     ...data.map(d=>d.val),
-    (mode==='dailyTotals' ? BASELINE_G : 0)
+    mode === 'dailyTotals' ? BASELINE_G : 0
   );
 
-  const left=36, right=8, top=12, bottom=28;
-  const innerW=W-left-right, innerH=H-top-bottom;
-
-  // osy
-  ctx.strokeStyle='rgba(255,255,255,0.25)';
-  ctx.lineWidth=1;
-  ctx.beginPath();
-  ctx.moveTo(left, top);
-  ctx.lineTo(left, H-bottom);
-  ctx.lineTo(W-right, H-bottom);
-  ctx.stroke();
-
-  // grid + Y
-  const steps=4;
+  // Y grid
   ctx.font='12px system-ui';
-  for(let i=0;i<=steps;i++){
-    const y=top + innerH - (i/steps)*innerH;
-    const v=(i/steps)*max;
+  for(let i=0;i<=4;i++){
+    const y = top + innerH - (i/4)*innerH;
+    const v = (i/4)*max;
     ctx.strokeStyle='rgba(255,255,255,0.12)';
     ctx.beginPath();
-    ctx.moveTo(left, y);
-    ctx.lineTo(W-right, y);
+    ctx.moveTo(left,y);
+    ctx.lineTo(W-right,y);
     ctx.stroke();
     ctx.fillStyle='rgba(255,255,255,0.7)';
-    ctx.textAlign='left';
     ctx.fillText(v.toFixed(0)+' g', 4, y+4);
   }
 
-  const stepX = data.length ? innerW / data.length : innerW;
+  const stepX = innerW / data.length;
 
-  if (mode === 'monthlyTotals') {
-    const barWidth = stepX * 0.6;
-    const bottomY = top + innerH;
+  /* ===== MĚSÍČNÍ – SLOUPCE ===== */
+  if(mode === 'monthlyTotals'){
+    const barW = stepX * 0.6;
 
     data.forEach((d,i)=>{
-      const xCenter = left + stepX*(i + 0.5);
-      const y = top + innerH - (d.val/max)*innerH;
-      const barHeight = bottomY - y;
+      const x = left + stepX * i + stepX / 2;
+      const h = (d.val / max) * innerH;
+      const y = top + innerH - h;
 
-      if (d.val > 0) {
-        ctx.fillStyle = '#22c55e';
-        ctx.fillRect(xCenter - barWidth/2, y, barWidth, barHeight);
+      ctx.fillStyle='#22c55e';
+      ctx.fillRect(x - barW/2, y, barW, h);
 
-        const valLabel = d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
-        ctx.fillStyle = '#fff';
-        ctx.font = '25px system-ui';
-        ctx.textAlign = 'center';
+      const label = d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
 
-        if (barHeight > 24) {
-          ctx.save();
-          ctx.translate(xCenter, y + barHeight/2);
-          ctx.rotate(-Math.PI/2);
-          ctx.fillText(valLabel, 0, 0);
-          ctx.restore();
-        } else {
-          ctx.textBaseline = 'bottom';
-          ctx.fillText(valLabel, xCenter, y - 4);
-        }
+      ctx.save();
+      ctx.fillStyle='#fff';
+      ctx.font = window.innerWidth < 480 ? '12px system-ui' : '14px system-ui';
+      ctx.textAlign='center';
+
+      if(h > 36){
+        ctx.translate(x, y + h/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.textBaseline='middle';
+        ctx.fillText(label, 0, 0);
+      } else {
+        ctx.textBaseline='bottom';
+        ctx.fillText(label, x, y - 4);
       }
+
+      ctx.restore();
     });
-  } else {
-    // denní linechart
+  }
+  /* ===== DENNÍ – ČÁRA ===== */
+  else {
     ctx.strokeStyle='#22c55e';
     ctx.lineWidth=2;
     ctx.beginPath();
     data.forEach((d,i)=>{
-      const x= left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
-      const y= top + innerH - (d.val/max)*innerH;
-      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+      const x = left + (i/(data.length-1))*innerW;
+      const y = top + innerH - (d.val/max)*innerH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
     });
     ctx.stroke();
-
-    ctx.fillStyle='#22c55e';
-    data.forEach((d,i)=>{
-      const x= left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
-      const y= top + innerH - (d.val/max)*innerH;
-      ctx.beginPath();
-      ctx.arc(x,y,2.5,0,Math.PI*2);
-      ctx.fill();
-    });
   }
 
-  // baseline jen pro denní
-  if (mode === 'dailyTotals'){
-    const yBase = top + innerH - (BASELINE_G/max)*innerH;
-    ctx.save();
-    ctx.setLineDash([6,4]);
-    ctx.strokeStyle = '#ef4444';
-    ctx.lineWidth = 1.5;
-    ctx.beginPath();
-    ctx.moveTo(left, yBase);
-    ctx.lineTo(W-right, yBase);
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = 'rgba(239,68,68,0.9)';
-    ctx.textAlign = 'right';
-    ctx.fillText(`baseline ${BASELINE_G} g`, W-10, Math.max(top+12, yBase-6));
-    ctx.restore();
-  }
-
-  // X popisky
+  /* ===== X POPISKY ===== */
   ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.font='11px system-ui';
   ctx.textAlign='center';
-  ctx.font = '11px system-ui';
   data.forEach((d,i)=>{
     if(i % xLabelsStep === 0 || i === data.length - 1){
-      const x = mode === 'monthlyTotals'
-        ? left + stepX*(i + 0.5)
-        : left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
-      ctx.fillText(d.label, x, H-8);
+      const x = left + stepX * i + stepX / 2;
+      ctx.fillText(d.label, x, H - 8);
     }
   });
 }
+
 
 
 
