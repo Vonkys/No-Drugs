@@ -87,10 +87,12 @@
     <h3>Graf dávkování</h3>
     <div class="btns" style="margin-bottom:8px;">
       <label for="chartMode" style="color:#9ca3af;">Režim:</label>
-      <select id="chartMode" style="background:#0b1220; color:#e5e7eb; border:1px solid rgba(255,255,255,.12); border-radius:8px; padding:6px 8px;">
-  <option value="dailyTotals" selected>Denní součty (30 dní)</option>
+      <select id="chartMode">
+  <option value="dailyTotals">Denní součty (30 dní)</option>
   <option value="monthlyTotals">Posledních 6 měsíců</option>
-  </select>
+  <option value="gaps">Rozestupy mezi dávkami</option>
+</select>
+
  </div>
     <canvas id="doseChart" height="220"></canvas>
   </section>
@@ -343,109 +345,204 @@ function monthlyTotals(months = 6){
   }
   return out;
 }
+function getDoseGaps(limit = 30){
+  const sorted = entries
+    .slice()
+    .sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+
+  const gaps = [];
+  for(let i=1;i<sorted.length;i++){
+    const t1 = new Date(sorted[i-1].ts);
+    const t2 = new Date(sorted[i].ts);
+    const diffSec = Math.round((t2 - t1) / 1000);
+    if(diffSec > 0) gaps.push(diffSec);
+  }
+  return gaps.slice(-limit);
+}
+
+function formatHM(sec){
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+
 // --- kreslení grafu ---
 function drawChart(){
-  const c=document.getElementById('doseChart'); if(!c)return; 
-  const ctx=c.getContext('2d');
-  const W=c.width = c.clientWidth; 
-  const H=c.height; 
+  const c = document.getElementById('doseChart');
+  if(!c) return;
+
+  const ctx = c.getContext('2d');
+  const W = c.width = c.clientWidth;
+  const H = c.height;
   ctx.clearRect(0,0,W,H);
 
   const modeEl = document.getElementById('chartMode');
   const mode = modeEl ? modeEl.value : 'dailyTotals';
+
+  /* =====================================================
+     REŽIM: ROZESTUPY MEZI DÁVKAMI (SLOUPCE)
+  ===================================================== */
+  if(mode === 'gaps'){
+    const gaps = getDoseGaps(30); // posledních 30 pauz
+
+    if(!gaps.length){
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.textAlign = 'center';
+      ctx.font = '14px system-ui';
+      ctx.fillText('Zatím nejsou žádné rozestupy', W/2, H/2);
+      return;
+    }
+
+    const maxSec = Math.max(...gaps, 3600); // min. 1 hodina měřítko
+    const left=40, right=10, top=12, bottom=28;
+    const innerW=W-left-right, innerH=H-top-bottom;
+
+    // osy
+    ctx.strokeStyle='rgba(255,255,255,0.25)';
+    ctx.lineWidth=1;
+    ctx.beginPath();
+    ctx.moveTo(left,top);
+    ctx.lineTo(left,H-bottom);
+    ctx.lineTo(W-right,H-bottom);
+    ctx.stroke();
+
+    // Y osa – hodiny
+    ctx.font='12px system-ui';
+    const steps=4;
+    for(let i=0;i<=steps;i++){
+      const y=top + innerH - (i/steps)*innerH;
+      const vSec=(i/steps)*maxSec;
+      const label=`${Math.round(vSec/3600)} h`;
+
+      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.moveTo(left,y);
+      ctx.lineTo(W-right,y);
+      ctx.stroke();
+
+      ctx.fillStyle='rgba(255,255,255,0.7)';
+      ctx.textAlign='left';
+      ctx.fillText(label, 4, y+4);
+    }
+
+    // sloupce
+    const colW = innerW / gaps.length;
+    const barW = Math.min(18, colW*0.7);
+
+    gaps.forEach((sec,i)=>{
+      const h = (sec / maxSec) * innerH;
+      const x = left + colW*i + colW/2;
+      const y = top + innerH - h;
+
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(x-barW/2, y, barW, h);
+
+      // popisek HH:MM
+      const label = formatHM(sec);
+      ctx.save();
+      ctx.fillStyle='#fff';
+      ctx.font='11px system-ui';
+      ctx.textAlign='center';
+
+      if(h > 28){
+        ctx.translate(x, y + h/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.fillText(label,0,0);
+      } else {
+        ctx.fillText(label, x, y-4);
+      }
+      ctx.restore();
+    });
+
+    return;
+  }
+
+  /* =====================================================
+     OSTATNÍ REŽIMY (DENNÍ / MĚSÍČNÍ)
+  ===================================================== */
 
   let data, xLabelsStep;
 
   if (mode === 'monthlyTotals') {
     data = monthlyTotals(6);
     if (data.length === 0) data = [{label:'', val:0}];
-    xLabelsStep = 1; // 6 měsíců -> ukážeme všechny
+    xLabelsStep = 1;
   } else {
     data = dailyTotals(30);
     xLabelsStep = Math.ceil(data.length / 6);
   }
 
-  let max = Math.max(5, ...data.map(d=>d.val), (mode==='dailyTotals' ? BASELINE_G : 0));
+  let max = Math.max(
+    5,
+    ...data.map(d=>d.val),
+    (mode==='dailyTotals' ? BASELINE_G : 0)
+  );
 
-  const left=36, right=8, top=12, bottom=28; 
+  const left=36, right=8, top=12, bottom=28;
   const innerW=W-left-right, innerH=H-top-bottom;
 
   // osy
-  ctx.strokeStyle='rgba(255,255,255,0.25)'; ctx.lineWidth=1;
-  ctx.beginPath(); 
-  ctx.moveTo(left, top); 
-  ctx.lineTo(left, H-bottom); 
-  ctx.lineTo(W-right, H-bottom); 
+  ctx.strokeStyle='rgba(255,255,255,0.25)';
+  ctx.lineWidth=1;
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, H-bottom);
+  ctx.lineTo(W-right, H-bottom);
   ctx.stroke();
 
   // grid + Y
-  const steps=4; 
+  const steps=4;
   ctx.font='12px system-ui';
   for(let i=0;i<=steps;i++){
-    const y=top + innerH - (i/steps)*innerH; 
+    const y=top + innerH - (i/steps)*innerH;
     const v=(i/steps)*max;
-    ctx.strokeStyle='rgba(255,255,255,0.12)'; 
-    ctx.beginPath(); 
-    ctx.moveTo(left, y); 
-    ctx.lineTo(W-right, y); 
+    ctx.strokeStyle='rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(left, y);
+    ctx.lineTo(W-right, y);
     ctx.stroke();
-    ctx.fillStyle='rgba(255,255,255,0.7)'; 
-    ctx.textAlign='left'; 
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    ctx.textAlign='left';
     ctx.fillText(v.toFixed(0)+' g', 4, y+4);
   }
 
   const stepX = data.length ? innerW / data.length : innerW;
 
   if (mode === 'monthlyTotals') {
-  // sloupce
-  const barWidth = stepX * 0.6; // 60 % šířky buněk
-  const bottomY = top + innerH;
+    const barWidth = stepX * 0.6;
+    const bottomY = top + innerH;
 
-  data.forEach((d,i)=>{
-    const xCenter = left + stepX*(i + 0.5);
-    const y = top + innerH - (d.val/max)*innerH;
-    const barHeight = bottomY - y;
+    data.forEach((d,i)=>{
+      const xCenter = left + stepX*(i + 0.5);
+      const y = top + innerH - (d.val/max)*innerH;
+      const barHeight = bottomY - y;
 
-    if (d.val > 0) {
-      // samotný sloupec
-      ctx.fillStyle = '#22c55e';
-      ctx.fillRect(xCenter - barWidth/2, y, barWidth, barHeight);
+      if (d.val > 0) {
+        ctx.fillStyle = '#22c55e';
+        ctx.fillRect(xCenter - barWidth/2, y, barWidth, barHeight);
 
-      const valLabel = d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
-
-      // větší sloupec → číslo VEVNITŘ svisle
-      if (barHeight > 24) {
-        ctx.save();
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
+        const valLabel = d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
+        ctx.fillStyle = '#fff';
         ctx.font = '25px system-ui';
-        ctx.fillStyle = '#ffffff'; // čistě bílé, lepší kontrast
         ctx.textAlign = 'center';
-        ctx.textBaseline = 'middle';
 
-        // střed sloupce
-        const midY = y + barHeight/2;
-        ctx.translate(xCenter, midY);
-        ctx.rotate(-Math.PI/2); // svisle
-        ctx.fillText(valLabel, 0, 0);
-        ctx.restore();
-      } else {
-        // malý sloupek → radši nad ním, ať je to čitelné
-        ctx.fillStyle = 'rgba(255,255,255,0.95)';
-        ctx.font = '25px system-ui';
-        ctx.fillStyle = '#ffffff'; // čistě bílé, lepší kontrast
-        ctx.textAlign = 'center';
-        ctx.textBaseline = 'bottom';
-        ctx.fillText(valLabel, xCenter, y - 4);
+        if (barHeight > 24) {
+          ctx.save();
+          ctx.translate(xCenter, y + barHeight/2);
+          ctx.rotate(-Math.PI/2);
+          ctx.fillText(valLabel, 0, 0);
+          ctx.restore();
+        } else {
+          ctx.textBaseline = 'bottom';
+          ctx.fillText(valLabel, xCenter, y - 4);
+        }
       }
-    }
-  });
-}
-
-
-   else {
+    });
+  } else {
     // denní linechart
-    ctx.strokeStyle='#22c55e'; 
-    ctx.lineWidth=2; 
+    ctx.strokeStyle='#22c55e';
+    ctx.lineWidth=2;
     ctx.beginPath();
     data.forEach((d,i)=>{
       const x= left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
@@ -454,27 +551,26 @@ function drawChart(){
     });
     ctx.stroke();
 
-    // body
     ctx.fillStyle='#22c55e';
     data.forEach((d,i)=>{
       const x= left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
       const y= top + innerH - (d.val/max)*innerH;
-      ctx.beginPath(); 
-      ctx.arc(x,y,2.5,0,Math.PI*2); 
+      ctx.beginPath();
+      ctx.arc(x,y,2.5,0,Math.PI*2);
       ctx.fill();
     });
   }
 
-  // baseline jen pro denní součty
+  // baseline jen pro denní
   if (mode === 'dailyTotals'){
     const yBase = top + innerH - (BASELINE_G/max)*innerH;
     ctx.save();
     ctx.setLineDash([6,4]);
     ctx.strokeStyle = '#ef4444';
     ctx.lineWidth = 1.5;
-    ctx.beginPath(); 
-    ctx.moveTo(left, yBase); 
-    ctx.lineTo(W-right, yBase); 
+    ctx.beginPath();
+    ctx.moveTo(left, yBase);
+    ctx.lineTo(W-right, yBase);
     ctx.stroke();
     ctx.setLineDash([]);
     ctx.fillStyle = 'rgba(239,68,68,0.9)';
@@ -484,21 +580,20 @@ function drawChart(){
   }
 
   // X popisky
-  ctx.fillStyle='rgba(255,255,255,0.7)'; 
+  ctx.fillStyle='rgba(255,255,255,0.7)';
   ctx.textAlign='center';
   ctx.font = '11px system-ui';
-  data.forEach((d,i)=>{ 
+  data.forEach((d,i)=>{
     if(i % xLabelsStep === 0 || i === data.length - 1){
-      let x;
-      if (mode === 'monthlyTotals') {
-        x = left + stepX*(i + 0.5); // střed sloupce
-      } else {
-        x = left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
-      }
+      const x = mode === 'monthlyTotals'
+        ? left + stepX*(i + 0.5)
+        : left + (data.length === 1 ? 0 : (i/(data.length-1))*innerW);
       ctx.fillText(d.label, x, H-8);
     }
   });
 }
+
+
 
 
 function escapeHtml(str){return String(str).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]));}
@@ -575,7 +670,6 @@ renderAll();
 </script>
 </body>
 </html>
-
 
 
 
