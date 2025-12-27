@@ -47,6 +47,9 @@
     dialog::backdrop { background:rgba(0,0,0,.5); }
     canvas { width:100%; background:#0b1220; border-radius:12px; display:block; }
     /* ===== DARK SELECT – KratomTime ===== */
+    .mode-row{
+  align-items: center;
+}
     .dark-select {
   appearance: none;
   -webkit-appearance: none;
@@ -118,7 +121,7 @@
   <!-- graf nad záznamy -->
   <section class="card">
     <h3>Graf dávkování</h3>
-    <div class="btns" style="margin-bottom:8px;">
+    <div class="btns mode-row" style="margin-bottom:8px;">
       <label for="chartMode" style="color:#9ca3af;">Režim:</label>
       <select id="chartMode" class="dark-select">
   <option value="dailyTotals">Denní součty (30 dní)</option>
@@ -659,6 +662,7 @@ renderAll();
 </script>
 </body>
 </html>
+
 
 
 
