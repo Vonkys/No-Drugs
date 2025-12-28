@@ -159,7 +159,7 @@ function escapeHtml(s){return String(s||'').replace(/[&<>\"]/g,m=>({'&':'&amp;',
 /* ===== Nastavení LocalStorage + Firebase ===== */
 const STORAGE_KEY='smoketrack-entries-v1';
 const FIREBASE_URL='https://cigaro-default-rtdb.europe-west1.firebasedatabase.app';
-const WARN_LIMITS = { cig: 12, joint: 3 };
+const WARN_LIMITS = { cig: 12, joint: 2 };
 function loadAll(){
   try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }
   catch{ return []; }
