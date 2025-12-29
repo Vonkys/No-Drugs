@@ -1,0 +1,788 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KratomTime</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --muted: #9ca3af;
+      --text: #e5e7eb;
+      --accent: #22c55e;
+      --accent-hover: #16a34a;
+      --danger: #ef4444;
+      --danger-hover: #dc2626;
+      --shadow: 0 10px 25px rgba(0,0,0,.35);
+      --radius: 16px;
+      --g2: #22c55e;
+      --g3: #eab308;
+      --g4: #f97316;
+      --g5: #ef4444;
+      --g6: #a855f7;
+      --g0: #94a3b8;
+    }
+    body { margin:0; font-family: system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    .wrap { max-width: 1100px; margin: 32px auto; padding: 0 16px; }
+    .header { display:flex; justify-content: space-between; align-items:center; gap:12px; }
+    .title { font-weight: 700; font-size: 24px; }
+    .card { background: #111827; border-radius: var(--radius); padding: 18px; box-shadow: var(--shadow); margin-bottom:16px; }
+    .btns { display:flex; gap: 8px; flex-wrap: wrap; }
+    button { cursor:pointer; border:none; border-radius:8px; padding:10px 14px; font-weight:600; }
+    .primary { background: var(--accent); color:#0b1220; }
+    .primary:hover { background: var(--accent-hover); }
+    .ghost { background: rgba(255,255,255,.1); color: var(--text); }
+    .danger { background: var(--danger); color:white; }
+    .danger:hover { background: var(--danger-hover); }
+    input[type="number"], input[type="text"], input[type="date"], input[type="time"] {
+      background: rgba(255,255,255,.08); color: var(--text); border: 1px solid rgba(255,255,255,.12); border-radius: 10px; padding: 8px 10px;
+    }
+    table { width:100%; border-collapse: collapse; }
+    th,td { padding:8px 8px; border-bottom:1px solid rgba(255,255,255,.1); text-align:left; }
+    th { color:var(--muted); font-size:12px; text-transform:uppercase; letter-spacing:.06em; }
+    .gchip { display:inline-block; min-width:36px; text-align:center; padding:2px 6px; border-radius:6px; font-weight:700; }
+    .g2{background:var(--g2);} .g3{background:var(--g3);} .g4{background:var(--g4);} .g5{background:var(--g5);color:#fff;} .g6{background:var(--g6);color:#fff;} .g0{background:var(--g0);}    
+    .del { line-height:1; padding:6px 10px; }
+    dialog { border:none; border-radius:12px; padding:20px; background:#1f2937; color:var(--text); }
+    dialog::backdrop { background:rgba(0,0,0,.5); }
+    canvas { width:100%; background:#0b1220; border-radius:12px; display:block; }
+    /* ===== DARK SELECT – KratomTime ===== */
+    .mode-row{
+  align-items: center;
+}
+  .dot{
+  display:inline-block;
+  width:10px;
+  height:10px;
+  border-radius:50%;
+  margin-right:8px;
+  position:relative;
+  top:-1px;
+}
+
+.dot-today{ background:#3b82f6; }   /* modrá */
+.dot-count{ background:#9ca3af; }   /* šedá */
+.dot-month{ background:#22c55e; }   /* zelená */
+.dot-avg{ background:#eab308; }     /* žlutá */
+.dot-trend{ background:#38bdf8; } /* jemná modrá */
+ 
+.dark-select {
+  appearance: none;
+  -webkit-appearance: none;
+
+  background: rgba(255,255,255,.08);
+  color: var(--text);
+  border: 1px solid rgba(255,255,255,.18);
+  border-radius: 12px;
+
+  padding: 8px 40px 8px 14px;   /* ⬅ menší výška */
+  font-size: 14px;             /* ⬅ o chlup menší text */
+  font-weight: 600;
+  height: 40px;                /* ⬅ fixní výška */
+  line-height: 24px;           /* ⬅ centrování textu */
+  background-image:
+    linear-gradient(45deg, transparent 50%, #9ca3af 50%),
+    linear-gradient(135deg, #9ca3af 50%, transparent 50%);
+  background-position:
+    calc(100% - 18px) 50%,      /* ⬅ šipka vertikálně střed */
+    calc(100% - 12px) 50%;
+  background-size: 6px 6px;
+  background-repeat: no-repeat;
+}
+.mode-row label{
+  font-size: 14px;
+  line-height: 1;
+}
+.dark-select:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px rgba(34,197,94,.25);
+}
+    /* Seskupené dny */
+    details.day { border:1px solid rgba(255,255,255,.08); border-radius:12px; margin:8px 0; }
+    details.day summary { cursor:pointer; list-style:none; padding:10px 12px; display:flex; justify-content:space-between; align-items:center; gap:12px; }
+    details.day summary::-webkit-details-marker { display:none; }
+    .day-meta { color: var(--muted); font-size:12px; }
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="header">
+    <div class="title">KratomTime</div>
+    <div id="todayBadge">—</div>
+  </div>
+
+  <section class="card">
+    <h3>Přidat dávku</h3>
+    <div class="btns">
+      <button class="primary" data-preset="2">2 g</button>
+      <button class="primary" data-preset="2.1">2.1 g</button>
+      <button class="primary" data-preset="2.2">2.2 g</button>
+      <button class="primary" data-preset="2.3">2.3 g</button>
+    </div>
+    <div class="btns" style="margin-top:8px;">
+      <input id="customAmount" type="number" step="0.1" min="0.1" placeholder="g" style="width:90px;">
+      <input id="note" type="text" placeholder="poznámka" style="flex:1; min-width:180px;">
+      <button id="addCustom" class="primary">Přidat</button>
+    </div>
+    <div class="btns" style="margin-top:8px;">
+      <button id="backfillBtn" class="danger">Zpětný záznam</button>
+    </div>
+   <div id="summaryBox" style="margin-top:10px; font-size:15px; line-height:1.6;">
+  <div>
+    <span class="dot dot-today"></span>
+    Dnes: <strong><span id="totalToday">0</span> g</strong>
+  </div>
+  <div>
+    <span class="dot dot-count"></span>
+    Počet záznamů: <strong><span id="countToday">0</span></strong>
+  </div>
+  <div>
+    <span class="dot dot-month"></span>
+    Měsíc: <strong><span id="totalMonth">0</span> g</strong>
+  </div>
+  <div>
+    <span class="dot dot-avg"></span>
+    Průměr: <strong><span id="avgMonth">0</span> g / den</strong>
+  </div>
+  <div>
+    <span class="dot dot-trend"></span>
+    Trend: <strong><span id="trendIcon">—</span></strong>
+  </div>
+  </div>
+
+
+  </section>
+
+  <!-- graf nad záznamy -->
+  <section class="card">
+    <h3>GRAF DÁVKOVÁNÍ 🌿</h3>
+    <div class="btns mode-row" style="margin-bottom:8px;">
+      <label for="chartMode" style="color:#9ca3af;">Režim:</label>
+      <select id="chartMode" class="dark-select">
+  <option value="dailyTotals">Den 🌞</option>
+  <option value="monthlyTotals">Měsíc 🌛</option>
+  <option value="gaps">Interval ⏱️</option>
+</select>
+
+ </div>
+    <canvas id="doseChart" height="220"></canvas>
+  </section>
+
+  <section class="card">
+    <h3>Všechny záznamy</h3>
+    <!-- nově místo jediné tabulky: skládací dny -->
+    <div id="groups"></div>
+  </section>
+</div>
+
+<dialog id="backfillDlg">
+  <h3>Zpětný záznam</h3>
+  <div class="btns" style="margin-bottom:8px;">
+    <button type="button" data-bf="2">2 g</button>
+    <button type="button" data-bf="2.1">2.1 g</button>
+    <button type="button" data-bf="2.2">2.2 g</button>
+    <button type="button" data-bf="2.3">2.3 g</button>
+  </div>
+  <div class="btns" style="flex-direction:column; gap:6px;">
+    <input id="bfAmount" type="number" step="0.1" placeholder="g">
+    <input id="bfDate" type="date">
+    <input id="bfTime" type="time" step="60">
+    <input id="bfNote" type="text" placeholder="poznámka">
+  </div>
+  <div class="btns" style="margin-top:10px;">
+    <button id="bfCancel">Zavřít</button>
+    <button id="bfSave" class="primary">Uložit</button>
+  </div>
+</dialog>
+<script>
+function pad(n){return String(n).padStart(2,'0');}
+function dateKey(d=new Date()){return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function fmtDate(d){return `${pad(d.getDate())}.${pad(d.getMonth()+1)}.${d.getFullYear()}`;}
+function fmtTime(d){return pad(d.getHours())+':'+pad(d.getMinutes());}
+function isoLocal(d){const tz=d.getTimezoneOffset();const t=new Date(d.getTime()-tz*60000);return t.toISOString().slice(0,19);}
+
+const STORAGE_KEY='gramLog-all';
+const BASELINE_G = 15;
+const FIREBASE_URL='https://kratom-332d6-default-rtdb.europe-west1.firebasedatabase.app';
+
+function loadAll(){try{return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]');}catch{return[];}}
+function saveAll(list){localStorage.setItem(STORAGE_KEY,JSON.stringify(list));}
+
+let entries=loadAll();
+function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
+let migrated=false; entries.forEach(e=>{if(e && !e.id){e.id=genId(); migrated=true;}}); if(migrated) saveAll(entries);
+
+/* ================= FIREBASE – JEN ZÁPIS + SYNC ================= */
+function sendToFirebase(entry){
+  try{
+    fetch(FIREBASE_URL+'/logs.json',{
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({
+        ts: Math.round(new Date(entry.ts).getTime()/1000),
+        g: Number(entry.g),
+        note: entry.note || ''
+      })
+    }).catch(()=>{});
+  }catch(e){}
+}
+
+async function syncFromFirebase(){
+  try{
+    const res = await fetch(FIREBASE_URL+'/logs.json');
+    if(!res.ok) return;
+    const data = await res.json();
+    if(!data) return;
+
+    const seen = new Set(entries.map(e=>e.g+'|'+e.ts+'|'+(e.note||'')));
+
+    Object.values(data).forEach(v=>{
+      if(!v.ts || !v.g) return;
+      const ts = isoLocal(new Date(v.ts * 1000));
+      const key = v.g+'|'+ts+'|'+(v.note||'');
+      if(seen.has(key)) return;
+
+      entries.push({
+        id: genId(),
+        ts,
+        g: Number(v.g),
+        note: v.note || ''
+      });
+    });
+
+    saveAll(entries);
+  }catch(e){}
+}
+/* =============================================================== */
+
+const groupsEl=document.getElementById('groups');
+const totalTodayEl=document.getElementById('totalToday');
+const countTodayEl=document.getElementById('countToday');
+const totalMonthEl = document.getElementById('totalMonth');
+const avgMonthEl = document.getElementById('avgMonth');
+const todayBadge=document.getElementById('todayBadge');
+const customAmount=document.getElementById('customAmount');
+const noteInput=document.getElementById('note');
+
+function refreshHeader(){const now=new Date();const days=['Ne','Po','Út','St','Čt','Pá','So'];todayBadge.textContent=`${days[now.getDay()]} • ${dateKey(now)}`;}
+function gClass(g){const r=Math.round(Number(g));return r===2?'g2':r===3?'g3':r===4?'g4':r===5?'g5':r===6?'g6':'g0';}
+function render(){
+refreshHeader();
+  /* ===== DNES ===== */
+  const today = dateKey(new Date());
+  const todays = entries.filter(e => e.ts.slice(0,10) === today);
+  const sumToday = todays.reduce((a,b)=>a + Number(b.g), 0);
+
+  totalTodayEl.textContent = sumToday.toLocaleString('cs-CZ',{maximumFractionDigits:2});
+  countTodayEl.textContent = todays.length;
+
+  /* ===== AKTUÁLNÍ MĚSÍC + PRŮMĚR ===== */
+  const now = new Date();
+  const currentMonth = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+
+  const monthEntries = entries.filter(e => e.ts.slice(0,7) === currentMonth);
+
+  let monthSum = 0;
+  const activeDays = new Set();
+
+  monthEntries.forEach(e=>{
+    monthSum += Number(e.g);
+    activeDays.add(e.ts.slice(0,10));
+  });
+
+  totalMonthEl.textContent = monthSum.toLocaleString('cs-CZ',{
+    maximumFractionDigits:1
+  });
+
+  const avgMonth =
+    activeDays.size > 0
+      ? (monthSum / activeDays.size)
+      : 0;
+
+  avgMonthEl.textContent = avgMonth.toLocaleString('cs-CZ',{
+    maximumFractionDigits:1
+  });
+
+  /* ===== TREND – POSLEDNÍCH 14 DNÍ ===== */
+  const dayMs = 24 * 60 * 60 * 1000;
+  const nowTs = now.getTime();
+
+  const last14 = entries.filter(e=>{
+    const t = new Date(e.ts).getTime();
+    return nowTs - t <= 14 * dayMs;
+  });
+
+  function avgPerDay(list){
+    if(!list.length) return 0;
+    const days = new Set(list.map(e=>e.ts.slice(0,10)));
+    const sum = list.reduce((a,b)=>a + Number(b.g), 0);
+    return sum / days.size;
+  }
+
+  const weekA = last14.filter(e=>{
+    const t = new Date(e.ts).getTime();
+    return nowTs - t <= 7 * dayMs;
+  });
+
+  const weekB = last14.filter(e=>{
+    const t = new Date(e.ts).getTime();
+    return nowTs - t > 7 * dayMs;
+  });
+
+  const avgA = avgPerDay(weekA);
+  const avgB = avgPerDay(weekB);
+
+  let trendIcon = '➡️';
+
+// 1️⃣ málo dat → čekáme
+if(activeDays.size < 10){
+  trendIcon = '⏳';
+}
+else if(weekA.length && weekB.length){
+  if(avgA - avgB > 0.1) trendIcon = '↗️';
+  else if(avgB - avgA > 0.1) trendIcon = '↘️';
+}
+
+
+
+  const trendEl = document.getElementById('trendIcon');
+  if(trendEl) trendEl.textContent = trendIcon;
+
+  /* ===== SESKUPENÍ: MĚSÍC → DEN ===== */
+  const byMonth = new Map();
+
+  entries
+    .slice()
+    .sort((a,b)=>new Date(a.ts)-new Date(b.ts))
+    .forEach(e=>{
+      const monthKey = e.ts.slice(0,7);
+      const dayKey   = e.ts.slice(0,10);
+
+      if(!byMonth.has(monthKey)) byMonth.set(monthKey, new Map());
+      const days = byMonth.get(monthKey);
+
+      if(!days.has(dayKey)) days.set(dayKey, []);
+      days.get(dayKey).push(e);
+    });
+
+  groupsEl.innerHTML = '';
+
+  const orderedMonths = [...byMonth.keys()].sort((a,b)=>a<b?1:-1);
+
+  orderedMonths.forEach(monthKey=>{
+    const monthDetails = document.createElement('details');
+    if(monthKey === currentMonth) monthDetails.open = true;
+
+    const daysMap = byMonth.get(monthKey);
+
+    let mSum = 0;
+    let mCount = 0;
+
+    daysMap.forEach(list=>{
+      list.forEach(e=>{
+        mSum += Number(e.g);
+        mCount++;
+      });
+    });
+
+    const [Y,M] = monthKey.split('-');
+    const monthSummary = document.createElement('summary');
+    monthSummary.innerHTML = `
+      <strong>${M}/${Y}</strong>
+      <span class="day-meta">
+        součet: <strong>${mSum.toLocaleString('cs-CZ',{maximumFractionDigits:1})} g</strong>
+        • záznamů: ${mCount}
+      </span>
+    `;
+    monthDetails.appendChild(monthSummary);
+
+    const orderedDays = [...daysMap.keys()].sort((a,b)=>a<b?1:-1);
+
+    orderedDays.forEach(dayKey=>{
+      const list = daysMap.get(dayKey);
+      const firstDate = new Date(list[0].ts);
+
+      const daySum = list.reduce((a,b)=>a + Number(b.g), 0)
+        .toLocaleString('cs-CZ',{maximumFractionDigits:2});
+      const dayCount = list.length;
+
+      const dayDetails = document.createElement('details');
+      dayDetails.className = 'day';
+      if(dayKey === today) dayDetails.open = true;
+
+      dayDetails.innerHTML = `
+        <summary>
+          <div>${fmtDate(firstDate)}</div>
+          <div class="day-meta">
+            součet: <strong>${daySum} g</strong> • záznamů: ${dayCount}
+          </div>
+        </summary>
+      `;
+
+      const tbl = document.createElement('table');
+      tbl.innerHTML = `
+        <thead>
+          <tr><th>Čas</th><th>g</th><th>Poznámka</th><th></th></tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tb = tbl.querySelector('tbody');
+
+      list
+        .slice()
+        .sort((a,b)=>new Date(a.ts)-new Date(b.ts))
+        .forEach(e=>{
+          const t = new Date(e.ts);
+          const gDisp = Number(e.g).toLocaleString('cs-CZ',{maximumFractionDigits:2});
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${fmtTime(t)}</td>
+            <td><span class="gchip ${gClass(e.g)}">${gDisp}</span></td>
+            <td>${e.note ? escapeHtml(e.note) : ''}</td>
+            <td><button class="ghost del row-del" data-id="${e.id}">×</button></td>
+          `;
+          tb.appendChild(tr);
+        });
+
+      dayDetails.appendChild(tbl);
+      monthDetails.appendChild(dayDetails);
+    });
+
+    groupsEl.appendChild(monthDetails);
+  });
+  }
+/* ===== DATA + GRAFY – BEZE ZMĚN (KOPIE) ===== */
+// --- data pro graf ---
+function dailyTotals(days=30){
+  const map=new Map();
+  entries.forEach(e=>{const d=e.ts.slice(0,10); map.set(d,(map.get(d)||0)+Number(e.g));});
+  const out=[]; const now=new Date();
+  for(let i=days-1;i>=0;i--){
+    const d=new Date(now.getFullYear(),now.getMonth(),now.getDate()-i);
+    const key=d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+    out.push({key, label:`${pad(d.getDate())}.${pad(d.getMonth()+1)}`, val: +(map.get(key)||0)});
+  }
+  return out;
+}
+
+// --- měsíční součty za posledních X měsíců ---
+function monthlyTotals(months = 6){
+  const map = new Map(); // key = "YYYY-MM" -> součet g
+
+  entries.forEach(e => {
+    const d = new Date(e.ts);
+    const key = d.getFullYear() + '-' + pad(d.getMonth()+1);
+    map.set(key, (map.get(key) || 0) + Number(e.g));
+  });
+
+  const out = [];
+  const now = new Date();
+
+  for (let i = months - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + pad(d.getMonth()+1);
+    out.push({
+      key,
+      label: `${pad(d.getMonth()+1)}.${d.getFullYear()}`, // např. 11.2025
+      val: +(map.get(key) || 0)
+    });
+  }
+  return out;
+}
+function getDoseGaps(limit = 30){
+  const sorted = entries
+    .slice()
+    .sort((a,b)=>new Date(a.ts)-new Date(b.ts));
+
+  const gaps = [];
+  for(let i=1;i<sorted.length;i++){
+    const t1 = new Date(sorted[i-1].ts);
+    const t2 = new Date(sorted[i].ts);
+    const diffSec = Math.round((t2 - t1) / 1000);
+    if(diffSec > 0) gaps.push(diffSec);
+  }
+  return gaps.slice(-limit);
+}
+
+function formatHM(sec){
+  const h = Math.floor(sec / 3600);
+  const m = Math.floor((sec % 3600) / 60);
+  return `${h}:${String(m).padStart(2,'0')}`;
+}
+
+
+// --- kreslení grafu ---
+function drawChart(){
+  const c = document.getElementById('doseChart');
+  if(!c) return;
+
+  const ctx = c.getContext('2d');
+  const W = c.width = c.clientWidth;
+  const H = c.height;
+  ctx.clearRect(0,0,W,H);
+
+  const mode = document.getElementById('chartMode')?.value || 'dailyTotals';
+
+  const left = 40, right = 10, top = 12, bottom = 28;
+  const innerW = W - left - right;
+  const innerH = H - top - bottom;
+
+  /* ===== OSY (společné) ===== */
+  ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(left, top);
+  ctx.lineTo(left, H - bottom);
+  ctx.lineTo(W - right, H - bottom);
+  ctx.stroke();
+
+  /* =====================================================
+     ROZESTUPY MEZI DÁVKAMI (SLOUPCOVÝ GRAF)
+  ===================================================== */
+  if(mode === 'gaps'){
+    const gaps = getDoseGaps(30);
+    if(!gaps.length){
+      ctx.fillStyle='rgba(255,255,255,.6)';
+      ctx.font='14px system-ui';
+      ctx.textAlign='center';
+      ctx.fillText('Zatím nejsou žádné rozestupy', W/2, H/2);
+      return;
+    }
+
+    const maxSec = Math.max(...gaps, 3600);
+
+    // Y osa – hodiny
+    ctx.font='12px system-ui';
+    for(let i=0;i<=4;i++){
+      const y = top + innerH - (i/4)*innerH;
+      const hLabel = Math.round((i/4)*maxSec/3600);
+      ctx.strokeStyle='rgba(255,255,255,0.12)';
+      ctx.beginPath();
+      ctx.moveTo(left,y);
+      ctx.lineTo(W-right,y);
+      ctx.stroke();
+      ctx.fillStyle='rgba(255,255,255,0.7)';
+      ctx.fillText(`${hLabel} h`, 4, y+4);
+    }
+
+    const colW = innerW / gaps.length;
+    const barW = Math.min(18, colW * 0.7);
+
+    gaps.forEach((sec,i)=>{
+      const h = (sec / maxSec) * innerH;
+      const x = left + colW * i + colW / 2;
+      const y = top + innerH - h;
+
+      ctx.fillStyle = '#22c55e';
+      ctx.fillRect(x - barW/2, y, barW, h);
+
+      const label = formatHM(sec);
+
+      ctx.save();
+      ctx.fillStyle = '#fff';
+      ctx.font = window.innerWidth < 480 ? '11px system-ui' : '12px system-ui';
+      ctx.textAlign = 'center';
+
+      if(h > 36){
+        // UVNITŘ – SVISLE
+        ctx.translate(x, y + h/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.textBaseline = 'middle';
+        ctx.fillText(label, 0, 0);
+      } else {
+        // NAD – VODOROVNĚ
+        ctx.textBaseline = 'bottom';
+        ctx.fillText(label, x, y - 4);
+      }
+
+      ctx.restore();
+    });
+
+    return;
+  }
+
+  /* =====================================================
+     DENNÍ / MĚSÍČNÍ DATA
+  ===================================================== */
+  let data, xLabelsStep;
+  if(mode === 'monthlyTotals'){
+    data = monthlyTotals(6);
+    xLabelsStep = 1;
+  } else {
+    data = dailyTotals(30);
+    xLabelsStep = Math.ceil(data.length / 6);
+  }
+
+  const max = Math.max(
+    5,
+    ...data.map(d=>d.val),
+    mode === 'dailyTotals' ? BASELINE_G : 0
+  );
+
+  // Y grid
+  ctx.font='12px system-ui';
+  for(let i=0;i<=4;i++){
+    const y = top + innerH - (i/4)*innerH;
+    const v = (i/4)*max;
+    ctx.strokeStyle='rgba(255,255,255,0.12)';
+    ctx.beginPath();
+    ctx.moveTo(left,y);
+    ctx.lineTo(W-right,y);
+    ctx.stroke();
+    ctx.fillStyle='rgba(255,255,255,0.7)';
+    ctx.fillText(v.toFixed(0)+' g', 4, y+4);
+  }
+
+  const stepX = innerW / data.length;
+
+  /* ===== MĚSÍČNÍ – SLOUPCE ===== */
+  if(mode === 'monthlyTotals'){
+    const barW = stepX * 0.6;
+
+    data.forEach((d,i)=>{
+      const x = left + stepX * i + stepX / 2;
+      const h = (d.val / max) * innerH;
+      const y = top + innerH - h;
+
+      ctx.fillStyle='#22c55e';
+      ctx.fillRect(x - barW/2, y, barW, h);
+
+      const label = d.val.toLocaleString('cs-CZ',{maximumFractionDigits:1});
+
+      ctx.save();
+      ctx.fillStyle='#fff';
+      ctx.font = window.innerWidth < 480 ? '12px system-ui' : '14px system-ui';
+      ctx.textAlign='center';
+
+      if(h > 36){
+        ctx.translate(x, y + h/2);
+        ctx.rotate(-Math.PI/2);
+        ctx.textBaseline='middle';
+        ctx.fillText(label, 0, 0);
+      } else {
+        ctx.textBaseline='bottom';
+        ctx.fillText(label, x, y - 4);
+      }
+
+      ctx.restore();
+    });
+  }
+  /* ===== DENNÍ – ČÁRA ===== */
+  else {
+    ctx.strokeStyle='#22c55e';
+    ctx.lineWidth=2;
+    ctx.beginPath();
+    data.forEach((d,i)=>{
+      const x = left + (i/(data.length-1))*innerW;
+      const y = top + innerH - (d.val/max)*innerH;
+      i===0 ? ctx.moveTo(x,y) : ctx.lineTo(x,y);
+    });
+    ctx.stroke();
+  }
+
+  /* ===== X POPISKY ===== */
+  ctx.fillStyle='rgba(255,255,255,0.7)';
+  ctx.font='11px system-ui';
+  ctx.textAlign='center';
+  data.forEach((d,i)=>{
+    if(i % xLabelsStep === 0 || i === data.length - 1){
+      const x = left + stepX * i + stepX / 2;
+      ctx.fillText(d.label, x, H - 8);
+    }
+  });
+}
+
+
+
+
+
+function escapeHtml(str){return String(str).replace(/[&<>\"]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','\"':'&quot;'}[m]));}
+function addEntry(grams,when=new Date(),note=''){
+  const g=Number(grams);
+  if(!g||g<=0)return;
+
+  const entry = {
+    id: genId(),
+    ts: isoLocal(when),
+    g,
+    note: note.trim()
+  };
+
+  entries.push(entry);
+  saveAll(entries);
+  sendToFirebase(entry); // ← TOHLE TAM CHYBĚLO
+  render();
+  drawChart();
+}
+
+// preset tlačítka – normální záznam
+document.querySelectorAll('button[data-preset]').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    customAmount.value = btn.getAttribute('data-preset');
+  });
+});
+// mazání jednotlivých záznamů
+groupsEl.addEventListener('click',(ev)=>{
+  const btn = ev.target.closest('.row-del');
+  if(!btn) return;
+
+  if(confirm('Smazat tento záznam?')){
+    entries = entries.filter(e => e.id !== btn.dataset.id);
+    saveAll(entries);
+    render();
+    drawChart();
+  }
+});
+// normální přidání záznamu (REALTIME)
+document.getElementById('addCustom').addEventListener('click',()=>{
+  addEntry(customAmount.value, new Date(), noteInput.value);
+  customAmount.value = '';
+  noteInput.value = '';
+});
+
+// zpětný záznam
+const backfillBtn=document.getElementById('backfillBtn');
+const backfillDlg=document.getElementById('backfillDlg');
+const bfAmount=document.getElementById('bfAmount');
+const bfDate=document.getElementById('bfDate');
+const bfTime=document.getElementById('bfTime');
+const bfNote=document.getElementById('bfNote');
+
+document.querySelectorAll('button[data-bf]').forEach(btn=>btn.addEventListener('click',()=>{bfAmount.value=btn.getAttribute('data-bf');}));
+
+backfillBtn.addEventListener('click',()=>{const now=new Date();bfDate.value=now.toISOString().slice(0,10);bfTime.value=`${pad(now.getHours())}:${pad(now.getMinutes())}`;bfAmount.value=customAmount.value||'';bfNote.value=noteInput.value||'';backfillDlg.showModal();});
+
+document.getElementById('bfCancel').addEventListener('click',()=>backfillDlg.close());
+document.getElementById('bfSave').addEventListener('click',()=>{const d=bfDate.value;const t=bfTime.value||'00:00';if(!d){alert('Zadej datum');return;}const [Y,M,D]=d.split('-').map(Number);const [H,Min]=t.split(':').map(Number);const when=new Date(Y,(M||1)-1,(D||1),H||0,Min||0);addEntry(bfAmount.value,when,bfNote.value);backfillDlg.close();});
+
+// překreslení grafu
+let rAf; window.addEventListener('resize',()=>{cancelAnimationFrame(rAf); rAf=requestAnimationFrame(drawChart);});
+const chartModeEl = document.getElementById('chartMode');
+if (chartModeEl) chartModeEl.addEventListener('change', drawChart);
+
+// start
+async function renderAll(){
+  await syncFromFirebase(); // ← TOHLE TAM CHYBĚLO
+  render();
+  drawChart();
+}
+renderAll();
+</script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
