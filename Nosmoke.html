@@ -1,4 +1,5 @@
 
+
 <!doctype html>
 <html lang="cs">
 <head>
@@ -51,7 +52,22 @@
   0%, 100% { opacity: 1; }
   50% { opacity: 0.35; }
   }
+  .progress-btn {
+  position: relative;
+  overflow: hidden;
+}
 
+.progress-btn::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 4px;
+  width: var(--p, 0%);
+  background: #22c55e;
+  transition: width 0.4s linear;
+}
+F
   /* i tečka */
   .dot.warn {
   background: #ef4444 !important;
@@ -333,21 +349,29 @@ document.getElementById('bfSave').addEventListener('click',()=>{
 function updateCigLock(){
   const btn = btnCig;
   const lockUntil = Number(localStorage.getItem(LOCK_KEY) || 0);
-  const diff = lockUntil - Date.now();
+  const now = Date.now();
+  const diff = lockUntil - now;
 
   if(diff > 0){
+    const total = LOCK_MINUTES * 60 * 1000;
+    const done = total - diff;
+    const percent = Math.min(100, Math.max(0, (done / total) * 100));
+
     btn.disabled = true;
-    btn.classList.add('ghost');
+    btn.classList.add('ghost', 'progress-btn');
+    btn.style.setProperty('--p', percent + '%');
 
     const min = Math.ceil(diff / 60000);
     btn.textContent = `⏳ ${min} min`;
   } else {
     btn.disabled = false;
-    btn.classList.remove('ghost');
+    btn.classList.remove('ghost', 'progress-btn');
+    btn.style.removeProperty('--p');
     btn.textContent = '+ Cigareta';
     localStorage.removeItem(LOCK_KEY);
   }
 }
+
 function deleteEntry(id){
   if(!confirm('Smazat záznam?')) return;
 
