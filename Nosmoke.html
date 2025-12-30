@@ -1,5 +1,6 @@
 
 
+
 <!doctype html>
 <html lang="cs">
 <head>
@@ -766,14 +767,25 @@ function drawChart() {
     const barW = Math.min(26, (colW - 16) / 2);
     const xForCol = i => left + i * colW + colW / 2;
 
-    function drawBar(xc, ratio, color) {
-      const r = Math.max(0, Math.min(1, ratio));
-      const h = innerH * r;
-      const yTop = top + innerH - h;
-      ctx.fillStyle = color;
-      ctx.fillRect(xc - barW / 2, yTop, barW, h);
-      return { h, yTop };
-    }
+ function drawBar(xc, ratio, color) {
+  // skutečný poměr (může být > 1)
+  const r = Math.max(0, ratio);
+
+  // vizuální limit sloupce (max 100 % výšky)
+  const capped = Math.min(1, r);
+
+  // výška sloupce
+  const h = innerH * capped;
+  const yTop = top + innerH - h;
+
+  // 🔴 pokud je nad 100 %, přebarvi na červenou
+  const barColor = r > 1 ? '#ef4444' : color;
+
+  ctx.fillStyle = barColor;
+  ctx.fillRect(xc - barW / 2, yTop, barW, h);
+
+  return { h, yTop };
+}
 
   function drawValue(xc, bar, value) {
   if (!bar || bar.h <= 0) return;
