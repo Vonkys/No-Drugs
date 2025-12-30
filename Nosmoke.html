@@ -691,30 +691,7 @@ function drawChart() {
     const yFor = v =>
       top + innerH - (v / yMax) * innerH;
 
-    function drawLine(key, color) {
-      ctx.strokeStyle = color;
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      let pen = false;
-
-      data.forEach((d, i) => {
-        const v = d[key] || 0;
-        if (v <= 0) {
-          pen = false;
-          return;
-        }
-        const x = xFor(i);
-        const y = yFor(v);
-        if (!pen) {
-          ctx.moveTo(x, y);
-          pen = true;
-        } else {
-          ctx.lineTo(x, y);
-        }
-      });
-
-      ctx.stroke();
-    }
+    
 
   /* =====================================================
      MĚSÍČNÍ PŘEHLED – BAR CHART
@@ -739,7 +716,33 @@ function drawChart() {
     const colW = innerW / data.length;
     const barW = Math.min(26, (colW - 16) / 2);
     const xForCol = i => left + i * colW + colW / 2;
+ function drawLine(key, color) {
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath();
 
+  let pen = false;
+
+  data.forEach((d, i) => {
+    const v = d[key] || 0;
+    if (v <= 0) {
+      pen = false;
+      return;
+    }
+
+    const x = xFor(i);
+    const y = yFor(v);
+
+    if (!pen) {
+      ctx.moveTo(x, y);
+      pen = true;
+    } else {
+      ctx.lineTo(x, y);
+    }
+  });
+
+  ctx.stroke();
+}
  function drawBar(xc, ratio, color) {
   const r = Math.max(0, ratio);
   const capped = Math.min(1, r);
