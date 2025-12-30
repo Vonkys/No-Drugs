@@ -344,26 +344,18 @@ avgMonthEl.textContent = avgMonth.toLocaleString('cs-CZ',{
     return nowTs - t > 7 * dayMs;
   });
 
-  const avgA = avgPerDay(weekA);
-  const avgB = avgPerDay(weekB);
+ const avgA = avgPerDay(weekA);
+const avgB = avgPerDay(weekB);
 
-  let trendIcon = '➡️';
+let trendIcon = '➡️';
 
-// 1️⃣ málo dat → čekáme
-if(finishedDays.size < 7){
-
-
-  trendIcon = '⏳';
-}
-else if(weekA.length && weekB.length){
-  if(avgA - avgB > 0.1) trendIcon = '↗️';
-  else if(avgB - avgA > 0.1) trendIcon = '↘️';
+if (weekA.length && weekB.length) {
+  if (avgA > avgB + 0.1) trendIcon = '↗️';
+  else if (avgB > avgA + 0.1) trendIcon = '↘️';
 }
 
-
-
-  const trendEl = document.getElementById('trendIcon');
-  if(trendEl) trendEl.textContent = trendIcon;
+const trendEl = document.getElementById('trendIcon');
+if (trendEl) trendEl.textContent = trendIcon;
 
   /* ===== SESKUPENÍ: MĚSÍC → DEN ===== */
   const byMonth = new Map();
