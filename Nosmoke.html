@@ -189,6 +189,7 @@ const FIREBASE_URL='https://cigaro-default-rtdb.europe-west1.firebasedatabase.ap
 const WARN_LIMITS = { cig: 12, joint: 3 };
 const LOCK_KEY = 'nosmoke-cig-lock';
 const LOCK_MINUTES = 15;
+
 function loadAll(){
   try{ return JSON.parse(localStorage.getItem(STORAGE_KEY)||'[]'); }
   catch{ return []; }
@@ -199,6 +200,7 @@ function saveAll(list){
 function genId(){return Date.now().toString(36)+Math.random().toString(36).slice(2,8)}
 
 let entries = loadAll(); // {id, ts, type:'cig'|'joint', note}
+let blinkPhase = 0;
 
 /* ===== Firebase sync ===== */
 
@@ -765,24 +767,33 @@ function drawChart() {
     const xForCol = i => left + i * colW + colW / 2;
 
  function drawBar(xc, ratio, color) {
-  // skutečný poměr (může být > 1)
   const r = Math.max(0, ratio);
-
-  // vizuální limit sloupce (max 100 % výšky)
   const capped = Math.min(1, r);
 
-  // výška sloupce
   const h = innerH * capped;
   const yTop = top + innerH - h;
 
-  // 🔴 pokud je nad 100 %, přebarvi na červenou
-  const barColor = r > 1 ? '#ef4444' : color;
+  const over = r > 1;
 
+  // 🔥 blikání jen při over-limit
+  let barColor = color;
+  let alpha = 1;
+
+  if (over) {
+    // sinusové pulzování
+    alpha = 0.4 + Math.abs(Math.sin(blinkPhase)) * 0.6;
+    barColor = '#ef4444';
+  }
+
+  ctx.save();
+  ctx.globalAlpha = alpha;
   ctx.fillStyle = barColor;
   ctx.fillRect(xc - barW / 2, yTop, barW, h);
+  ctx.restore();
 
-  return { h, yTop };
+  return { h, yTop, over };
 }
+
 
   function drawValue(xc, bar, value) {
   if (!bar || bar.h <= 0) return;
@@ -841,6 +852,14 @@ function drawChart() {
     return;
   }
 }
+function animateBlink() {
+  blinkPhase += 0.01;   // rychlost blikání
+  drawChart();
+  requestAnimationFrame(animateBlink);
+}
+
+// spustíme jen jednou
+animateBlink();
 
 
 
