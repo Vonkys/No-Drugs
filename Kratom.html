@@ -64,7 +64,7 @@
 .dot-count{ background:#9ca3af; }   /* šedá */
 .dot-month{ background:#22c55e; }   /* zelená */
 .dot-avg{ background:#eab308; }     /* žlutá */
-.dot-trend{ background:#bb0505; } /* červená */
+.dot-trend{ background:#38bdf8; } /* jemná modrá */
  
 .dark-select {
   appearance: none;
@@ -108,12 +108,12 @@
 <body>
 <div class="wrap">
   <div class="header">
-    <div class="title">KratomTime 🌿</div>
+    <div class="title">KratomTime</div>
     <div id="todayBadge">—</div>
   </div>
 
   <section class="card">
-    <h3>📖✏️ Přidat dávku</h3>
+    <h3>Přidat dávku</h3>
     <div class="btns">
       <button class="primary" data-preset="2">2 g</button>
       <button class="primary" data-preset="2.1">2.1 g</button>
@@ -156,7 +156,7 @@
 
   <!-- graf nad záznamy -->
   <section class="card">
-    <h3>GRAF DÁVKOVÁNÍ 📈</h3>
+    <h3>GRAF DÁVKOVÁNÍ 🌿</h3>
     <div class="btns mode-row" style="margin-bottom:8px;">
       <label for="chartMode" style="color:#9ca3af;">Režim:</label>
       <select id="chartMode" class="dark-select">
@@ -284,31 +284,45 @@ refreshHeader();
   const monthEntries = entries.filter(e => e.ts.slice(0,7) === currentMonth);
 
   let monthSum = 0;
-  const activeDays = new Set();
+let finishedSum = 0;
 
-  monthEntries.forEach(e=>{
-    monthSum += Number(e.g);
-    activeDays.add(e.ts.slice(0,10));
-  });
+const todayKey = dateKey(new Date());
+const finishedEntries = entries.filter(e => {
+  return e.ts.slice(0,10) !== todayKey;
+});
+const finishedDays = new Set();
+monthEntries.forEach(e=>{
+  const day = e.ts.slice(0,10);
+  const g = Number(e.g);
 
-  totalMonthEl.textContent = monthSum.toLocaleString('cs-CZ',{
-    maximumFractionDigits:1
-  });
+  monthSum += g;
 
-  const avgMonth =
-    activeDays.size > 0
-      ? (monthSum / activeDays.size)
-      : 0;
+  // ❌ dnešek NE
+  if(day !== todayKey){
+    finishedSum += g;
+    finishedDays.add(day);
+  }
+});
 
-  avgMonthEl.textContent = avgMonth.toLocaleString('cs-CZ',{
-    maximumFractionDigits:1
-  });
+totalMonthEl.textContent = monthSum.toLocaleString('cs-CZ',{
+  maximumFractionDigits:1
+});
+
+const avgMonth =
+  finishedDays.size > 0
+    ? (finishedSum / finishedDays.size)
+    : 0;
+
+avgMonthEl.textContent = avgMonth.toLocaleString('cs-CZ',{
+  maximumFractionDigits:1
+});
+
 
   /* ===== TREND – POSLEDNÍCH 14 DNÍ ===== */
   const dayMs = 24 * 60 * 60 * 1000;
   const nowTs = now.getTime();
 
-  const last14 = entries.filter(e=>{
+  const last14 = finishedEntries.filter(e=>{
     const t = new Date(e.ts).getTime();
     return nowTs - t <= 14 * dayMs;
   });
@@ -336,7 +350,9 @@ refreshHeader();
   let trendIcon = '➡️';
 
 // 1️⃣ málo dat → čekáme
-if(activeDays.size < 10){
+if(finishedDays.size < 7){
+
+
   trendIcon = '⏳';
 }
 else if(weekA.length && weekB.length){
@@ -771,9 +787,6 @@ renderAll();
 </script>
 </body>
 </html>
-
-
-
 
 
 
