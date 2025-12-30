@@ -714,33 +714,7 @@ function drawChart() {
       });
 
       ctx.stroke();
-
-      ctx.fillStyle = color;
-      data.forEach((d, i) => {
-        const v = d[key] || 0;
-        if (v <= 0) return;
-        const x = xFor(i);
-        const y = yFor(v);
-        ctx.beginPath();
-        ctx.arc(x, y, 2.5, 0, Math.PI * 2);
-        ctx.fill();
-      });
     }
-
-    drawLine('cig', cigColor);
-    drawLine('joint', jointColor);
-
-    ctx.fillStyle = 'rgba(255,255,255,.75)';
-    ctx.textAlign = 'center';
-    const step = Math.max(1, Math.ceil(data.length / 6));
-    data.forEach((d, i) => {
-      if (i % step === 0 || i === data.length - 1) {
-        ctx.fillText(d.label, xFor(i), H - 8);
-      }
-    });
-
-    return;
-  }
 
   /* =====================================================
      MĚSÍČNÍ PŘEHLED – BAR CHART
