@@ -269,35 +269,31 @@ function refreshHeader(){const now=new Date();const days=['Ne','Po','Út','St','
 function gClass(g){const r=Math.round(Number(g));return r===2?'g2':r===3?'g3':r===4?'g4':r===5?'g5':r===6?'g6':'g0';}
 function render(){
 refreshHeader();
-  /* ===== DNES ===== */
-  const today = dateKey(new Date());
-  const todays = entries.filter(e => e.ts.slice(0,10) === today);
-  const sumToday = todays.reduce((a,b)=>a + Number(b.g), 0);
-
-  totalTodayEl.textContent = sumToday.toLocaleString('cs-CZ',{maximumFractionDigits:2});
-  countTodayEl.textContent = todays.length;
-
-  /* ===== AKTUÁLNÍ MĚSÍC + PRŮMĚR ===== */
-  const now = new Date();
-  const currentMonth = now.getFullYear() + '-' + pad(now.getMonth() + 1);
-
-  const monthEntries = entries.filter(e => e.ts.slice(0,7) === currentMonth);
-
-  let monthSum = 0;
-let finishedSum = 0;
-
+ /* ===== DNES ===== */
 const todayKey = dateKey(new Date());
-const finishedEntries = entries.filter(e => {
-  return e.ts.slice(0,10) !== todayKey;
-});
+
+const todays = entries.filter(e => e.ts.slice(0,10) === todayKey);
+const sumToday = todays.reduce((a,b)=>a + Number(b.g), 0);
+
+totalTodayEl.textContent = sumToday.toLocaleString('cs-CZ',{maximumFractionDigits:2});
+countTodayEl.textContent = todays.length;
+
+/* ===== AKTUÁLNÍ MĚSÍC + PRŮMĚR (BEZ DNEŠKA) ===== */
+const now = new Date();
+const currentMonth = now.getFullYear() + '-' + pad(now.getMonth() + 1);
+
+const monthEntries = entries.filter(e => e.ts.slice(0,7) === currentMonth);
+
+let monthSum = 0;
+let finishedSum = 0;
 const finishedDays = new Set();
+
 monthEntries.forEach(e=>{
   const day = e.ts.slice(0,10);
   const g = Number(e.g);
 
   monthSum += g;
 
-  // ❌ dnešek NE
   if(day !== todayKey){
     finishedSum += g;
     finishedDays.add(day);
@@ -317,149 +313,46 @@ avgMonthEl.textContent = avgMonth.toLocaleString('cs-CZ',{
   maximumFractionDigits:1
 });
 
+/* ===== TREND – POSLEDNÍ HOTOVÉ DNY (NAPŘÍČ MĚSÍCI, BEZ DNEŠKA) ===== */
+const finishedEntries = entries.filter(e =>
+  e.ts.slice(0,10) !== todayKey
+);
 
-  /* ===== TREND – POSLEDNÍCH 14 DNÍ ===== */
-  const dayMs = 24 * 60 * 60 * 1000;
-  const nowTs = now.getTime();
+// seskupení po dnech
+const dayMap = new Map();
 
-  const last14 = finishedEntries.filter(e=>{
-    const t = new Date(e.ts).getTime();
-    return nowTs - t <= 14 * dayMs;
-  });
+finishedEntries.forEach(e=>{
+  const day = e.ts.slice(0,10);
+  dayMap.set(day, (dayMap.get(day) || 0) + Number(e.g));
+});
 
-  function avgPerDay(list){
-    if(!list.length) return 0;
-    const days = new Set(list.map(e=>e.ts.slice(0,10)));
-    const sum = list.reduce((a,b)=>a + Number(b.g), 0);
-    return sum / days.size;
-  }
+// dny od nejnovějších
+const days = [...dayMap.entries()]
+  .sort((a,b)=> a[0] < b[0] ? 1 : -1);
 
-  const weekA = last14.filter(e=>{
-    const t = new Date(e.ts).getTime();
-    return nowTs - t <= 7 * dayMs;
-  });
+// 2 týdny HOTOVÝCH DNŮ
+const weekA = days.slice(0,7);
+const weekB = days.slice(7,14);
 
-  const weekB = last14.filter(e=>{
-    const t = new Date(e.ts).getTime();
-    return nowTs - t > 7 * dayMs;
-  });
+function avgWeek(list){
+  if(!list.length) return 0;
+  return list.reduce((a,b)=>a + b[1], 0) / list.length;
+}
 
- const avgA = avgPerDay(weekA);
-const avgB = avgPerDay(weekB);
+const avgA = avgWeek(weekA);
+const avgB = avgWeek(weekB);
 
-let trendIcon = '➡️';
+let trendIcon = '⏳';
 
-if (weekA.length && weekB.length) {
+if (weekA.length === 7 && weekB.length === 7) {
   if (avgA > avgB + 0.1) trendIcon = '↗️';
   else if (avgB > avgA + 0.1) trendIcon = '↘️';
+  else trendIcon = '➡️';
 }
 
 const trendEl = document.getElementById('trendIcon');
 if (trendEl) trendEl.textContent = trendIcon;
-
-  /* ===== SESKUPENÍ: MĚSÍC → DEN ===== */
-  const byMonth = new Map();
-
-  entries
-    .slice()
-    .sort((a,b)=>new Date(a.ts)-new Date(b.ts))
-    .forEach(e=>{
-      const monthKey = e.ts.slice(0,7);
-      const dayKey   = e.ts.slice(0,10);
-
-      if(!byMonth.has(monthKey)) byMonth.set(monthKey, new Map());
-      const days = byMonth.get(monthKey);
-
-      if(!days.has(dayKey)) days.set(dayKey, []);
-      days.get(dayKey).push(e);
-    });
-
-  groupsEl.innerHTML = '';
-
-  const orderedMonths = [...byMonth.keys()].sort((a,b)=>a<b?1:-1);
-
-  orderedMonths.forEach(monthKey=>{
-    const monthDetails = document.createElement('details');
-    if(monthKey === currentMonth) monthDetails.open = true;
-
-    const daysMap = byMonth.get(monthKey);
-
-    let mSum = 0;
-    let mCount = 0;
-
-    daysMap.forEach(list=>{
-      list.forEach(e=>{
-        mSum += Number(e.g);
-        mCount++;
-      });
-    });
-
-    const [Y,M] = monthKey.split('-');
-    const monthSummary = document.createElement('summary');
-    monthSummary.innerHTML = `
-      <strong>${M}/${Y}</strong>
-      <span class="day-meta">
-        součet: <strong>${mSum.toLocaleString('cs-CZ',{maximumFractionDigits:1})} g</strong>
-        • záznamů: ${mCount}
-      </span>
-    `;
-    monthDetails.appendChild(monthSummary);
-
-    const orderedDays = [...daysMap.keys()].sort((a,b)=>a<b?1:-1);
-
-    orderedDays.forEach(dayKey=>{
-      const list = daysMap.get(dayKey);
-      const firstDate = new Date(list[0].ts);
-
-      const daySum = list.reduce((a,b)=>a + Number(b.g), 0)
-        .toLocaleString('cs-CZ',{maximumFractionDigits:2});
-      const dayCount = list.length;
-
-      const dayDetails = document.createElement('details');
-      dayDetails.className = 'day';
-      if(dayKey === today) dayDetails.open = true;
-
-      dayDetails.innerHTML = `
-        <summary>
-          <div>${fmtDate(firstDate)}</div>
-          <div class="day-meta">
-            součet: <strong>${daySum} g</strong> • záznamů: ${dayCount}
-          </div>
-        </summary>
-      `;
-
-      const tbl = document.createElement('table');
-      tbl.innerHTML = `
-        <thead>
-          <tr><th>Čas</th><th>g</th><th>Poznámka</th><th></th></tr>
-        </thead>
-        <tbody></tbody>
-      `;
-      const tb = tbl.querySelector('tbody');
-
-      list
-        .slice()
-        .sort((a,b)=>new Date(a.ts)-new Date(b.ts))
-        .forEach(e=>{
-          const t = new Date(e.ts);
-          const gDisp = Number(e.g).toLocaleString('cs-CZ',{maximumFractionDigits:2});
-          const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td>${fmtTime(t)}</td>
-            <td><span class="gchip ${gClass(e.g)}">${gDisp}</span></td>
-            <td>${e.note ? escapeHtml(e.note) : ''}</td>
-            <td><button class="ghost del row-del" data-id="${e.id}">×</button></td>
-          `;
-          tb.appendChild(tr);
-        });
-
-      dayDetails.appendChild(tbl);
-      monthDetails.appendChild(dayDetails);
-    });
-
-    groupsEl.appendChild(monthDetails);
-  });
-  }
+}
 /* ===== DATA + GRAFY – BEZE ZMĚN (KOPIE) ===== */
 // --- data pro graf ---
 function dailyTotals(days=30){
@@ -779,21 +672,3 @@ renderAll();
 </script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
