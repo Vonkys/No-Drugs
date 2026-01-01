@@ -491,12 +491,17 @@ function render(){
 
   groupsEl.innerHTML = '';
 
-  const currentMonth = new Date().toISOString().slice(0,7);
+  
+const currentMonth =
+  now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+
   const orderedMonths = [...byMonth.keys()].sort((a,b)=>a<b?1:-1);
 
   orderedMonths.forEach(monthKey=>{
     const monthDetails = document.createElement('details');
-    if(monthKey === currentMonth) monthDetails.open = true;
+    if(monthKey === currentMonth) monthDetails.open = true;const latestMonth = orderedMonths[0];
+monthDetails.open = (monthKey === latestMonth);
+
 
     const daysMap = byMonth.get(monthKey);
 
