@@ -456,21 +456,33 @@ function render(){
   document.getElementById('monthCig').textContent = mCig;
   document.getElementById('monthJoint').textContent = mJoint;
 
-  /* ===== DENNÍ PRŮMĚR (jen aktivní dny) ===== */
-  const activeDays = new Set(
-    monthEntries.map(e => e.ts.slice(0,10))
-  );
+  /* ===== DENNÍ PRŮMĚR – AKTUÁLNÍ MĚSÍC, JEN CELÉ DNY ===== */
+const todayKey = dateKey(now);
 
-  const daysCount = activeDays.size || 1;
+// jen záznamy aktuálního měsíce BEZ dneška
+const finishedMonthEntries = monthEntries.filter(
+  e => e.ts.slice(0,10) !== todayKey
+);
 
-  const avgCig = mCig / daysCount;
-  const avgJoint = mJoint / daysCount;
+// unikátní celé dny
+const finishedDays = new Set(
+  finishedMonthEntries.map(e => e.ts.slice(0,10))
+);
 
-  document.getElementById('avgCig').textContent =
-    avgCig.toLocaleString('cs-CZ',{ maximumFractionDigits:1 });
+const daysCount = finishedDays.size;
 
-  document.getElementById('avgJoint').textContent =
-    avgJoint.toLocaleString('cs-CZ',{ maximumFractionDigits:1 });
+const finishedCig = finishedMonthEntries.filter(e => e.type === 'cig').length;
+const finishedJoint = finishedMonthEntries.filter(e => e.type === 'joint').length;
+
+const avgCig = daysCount ? finishedCig / daysCount : 0;
+const avgJoint = daysCount ? finishedJoint / daysCount : 0;
+
+document.getElementById('avgCig').textContent =
+  avgCig.toLocaleString('cs-CZ',{ maximumFractionDigits:1 });
+
+document.getElementById('avgJoint').textContent =
+  avgJoint.toLocaleString('cs-CZ',{ maximumFractionDigits:1 });
+
 
   /* ===== SESKUPENÍ: MĚSÍC → DEN ===== */
   const byMonth = new Map();
