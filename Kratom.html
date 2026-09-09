@@ -222,9 +222,9 @@ function genId(){return Date.now().toString(36)+Math.random().toString(36).slice
 let migrated=false; entries.forEach(e=>{if(e && !e.id){e.id=genId(); migrated=true;}}); if(migrated) saveAll(entries);
 
 /* ================= FIREBASE – JEN ZÁPIS + SYNC ================= */
-function sendToFirebase(entry){
+async function sendToFirebase(entry){
   try{
-    fetch(FIREBASE_URL+'/logs.json',{
+    const response = await fetch(FIREBASE_URL+'/logs.json',{
       method:'POST',
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({
@@ -232,7 +232,14 @@ function sendToFirebase(entry){
         g: Number(entry.g),
         note: entry.note || ''
       })
-    }).catch(()=>{});
+    });
+
+    const data = await response.json();
+
+    if(data.name){
+      entry.firebaseId = data.name;
+      saveAll(entries);
+    }
   }catch(e){}
 }
 
@@ -245,18 +252,25 @@ async function syncFromFirebase(){
 
     const seen = new Set(entries.map(e=>e.g+'|'+e.ts+'|'+(e.note||'')));
 
-    Object.values(data).forEach(v=>{
+    Object.entries(data).forEach(([firebaseId,v])=>{
       if(!v.ts || !v.g) return;
       const ts = isoLocal(new Date(v.ts * 1000));
       const key = v.g+'|'+ts+'|'+(v.note||'');
-      if(seen.has(key)) return;
+      if(seen.has(key)){
+  const existing = entries.find(e => e.g+'|'+e.ts+'|'+(e.note||'') === key);
+  if(existing && !existing.firebaseId){
+    existing.firebaseId = firebaseId;
+  }
+  return;
+}
 
-      entries.push({
-        id: genId(),
-        ts,
-        g: Number(v.g),
-        note: v.note || ''
-      });
+entries.push({
+  id: genId(),
+  firebaseId,
+  ts,
+  g: Number(v.g),
+  note: v.note || ''
+});
     });
 
     saveAll(entries);
@@ -754,18 +768,39 @@ document.querySelectorAll('button[data-preset]').forEach(btn=>{
     customAmount.value = btn.getAttribute('data-preset');
   });
 });
+
 // mazání jednotlivých záznamů
-groupsEl.addEventListener('click',(ev)=>{
+groupsEl.addEventListener('click',async (ev)=>{
   const btn = ev.target.closest('.row-del');
   if(!btn) return;
 
   if(confirm('Smazat tento záznam?')){
-    entries = entries.filter(e => e.id !== btn.dataset.id);
-    saveAll(entries);
-    render();
-    drawChart();
+    const entry = entries.find(e => e.id === btn.dataset.id);
+    if(!entry) return;
+
+    try{
+      if(entry.firebaseId){
+        const response = await fetch(
+          FIREBASE_URL+'/logs/'+encodeURIComponent(entry.firebaseId)+'.json',
+          {method:'DELETE'}
+        );
+
+        if(!response.ok){
+          alert('Záznam se nepodařilo smazat z Firebase.');
+          return;
+        }
+      }
+
+      entries = entries.filter(e => e.id !== btn.dataset.id);
+      saveAll(entries);
+      render();
+      drawChart();
+    }catch(e){
+      alert('Chyba při mazání z Firebase.');
+    }
   }
 });
+
 // normální přidání záznamu (REALTIME)
 document.getElementById('addCustom').addEventListener('click',()=>{
   addEntry(customAmount.value, new Date(), noteInput.value);
